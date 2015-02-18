@@ -3,7 +3,11 @@ PostGIS geoprocessing tools for the QGIS processing toolbox
 
 ![](/icons/naturalgis.png)
 
-Developed by NaturalGIS http://www.naturalgis.pt/ email: giovanni.manghi@naturalgis.pt
+Developed by NaturalGIS 
+
+web: http://www.naturalgis.pt/ 
+
+email: giovanni.manghi@naturalgis.pt
 
 This tools are meant to allow users do Spatial Analysis leveraging on the power of PostGIS (http://postgis.net/) spatial functions/operators, but without needing the Knowledge of Spatial SQL.
 
