@@ -3,14 +3,21 @@ name=PostGIS geoprocessing tools
 description=A set of tools to do geoprocessing with PostGIS layers. The spatial SQL queries are run in the server where the layers come from, and the result will be a PostGIS layer (created directly in the server where the inputs come from) and not a shapefile as usually in the Processing toolbox. The plugin is experimental and in the future it will benefit from a number of improvements that will be made in the QGIS Processing toolbox.
 about=Developed by Giovanni Manghi/NaturalGIS (http://www.naturalgis.pt/) with the help of Alexander Bruy (alexander.bruy@gmail.com)
 category=Plugins
-version=0.1
-qgisMinimumVersion=2.7
+version=0.2
+qgisMinimumVersion=2.8
 icon=icons/naturalgis_32.png
 tags=vector, geoprocessing, postgis
-author=Giovanni Manghi
+author=Giovanni Manghi for NaturalGIS
 email=giovanni.manghi@naturalgis.pt
 homepage=http://www.naturalgis.pt/
 tracker=https://github.com/NaturalGIS/postgis_geoprocessing/issues
 repository=https://github.com/NaturalGIS/postgis_geoprocessing
 experimental=True
 deprecated=False
+changelog=0.2
+    - Optimized several queries
+    - Added buffer tool
+    - Added extract invalid polygons tool (ST_IsValid)
+    - Added fix invalid polygons (ST_Buffer)
+  0.1
+    - First commit
