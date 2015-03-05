@@ -2,7 +2,7 @@
 
 """
 ***************************************************************************
-    makevalid.py
+    dissolve.py
     ---------------------
     Date                 : January 2015
     Copyright            : (C) 2015 by Giovanni Manghi
@@ -46,10 +46,16 @@ from processing.tools import dataobjects
 from processing.algs.gdal.OgrAlgorithm import OgrAlgorithm
 from processing.algs.gdal.GdalUtils import GdalUtils
 
-class makevalid(OgrAlgorithm):
+class dissolve(OgrAlgorithm):
 
+    OUTPUT_LAYER = 'OUTPUT_LAYER'
     INPUT_LAYER = 'INPUT_LAYER'
-    FIELDS = 'FIELDS'    
+    FIELD = 'FIELD'
+    SINGLE = 'SINGLE'
+    COUNT = 'COUNT'
+    STATS = 'STATS'
+    STATSATT = 'STATSATT'
+    AREA = 'AREA'
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
     OPTIONS = 'OPTIONS'
@@ -59,17 +65,27 @@ class makevalid(OgrAlgorithm):
         return  QIcon(os.path.dirname(__file__) + '/icons/postgis.png')
 
     def defineCharacteristics(self):
-        self.name = 'Fix invalid polygons (ST_MakeValid)'
+        self.name = 'Dissolve polygons'
         self.group = 'Vector geoprocessing'
 
-        self.addParameter(ParameterVector(self.INPUT_LAYER, 'Input layer',
-                          [ParameterVector.VECTOR_TYPE_POLYGON], False))
-        self.addParameter(ParameterString(self.FIELDS, 'Attributes to keep (comma separated list). Aliasing permitted.',
-                          '', optional=False))
+        self.addParameter(ParameterVector(self.INPUT_LAYER,
+            self.tr('Input layer'), [ParameterVector.VECTOR_TYPE_POLYGON], False))
+        self.addParameter(ParameterTableField(self.FIELD,
+            self.tr('Dissolve field'), self.INPUT_LAYER))
+        self.addParameter(ParameterBoolean(self.SINGLE,
+            self.tr('Force output as singlepart'), False))
+        self.addParameter(ParameterBoolean(self.COUNT,
+            self.tr('Count dissolved features'), False))
+        self.addParameter(ParameterBoolean(self.AREA,
+            self.tr('Compute area and perimeter of dissolved features'), False))
+        self.addParameter(ParameterBoolean(self.STATS,
+            self.tr('Compute min/max/sum/mean for the following numeric attribute'), False))
+        self.addParameter(ParameterTableField(self.STATSATT,
+            self.tr('Numeric attribute to compute dissolved features stats'), self.INPUT_LAYER))
         self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
                           'public', optional=False))
         self.addParameter(ParameterString(self.TABLE, 'Output table name',
-                          'validlayer', optional=False))
+                          'dissolved', optional=False))
         self.addParameter(ParameterString(self.OPTIONS, 'Additional creation options (see ogr2ogr manual)',
                           '', optional=True))
         self.addOutput(OutputHTML(self.OUTPUT, 'Output log'))
@@ -78,39 +94,63 @@ class makevalid(OgrAlgorithm):
         inLayer = self.getParameterValue(self.INPUT_LAYER)
         ogrLayer = self.ogrConnectionString(inLayer)[1:-1]
         layername = self.ogrLayerName(inLayer)
-        fields = unicode(self.getParameterValue(self.FIELDS))
         dsUri = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER))
         geomColumn = dsUri.geometryColumn()
         layer = dataobjects.getObjectFromUri(self.getParameterValue(self.INPUT_LAYER))
         geomType = layer.geometryType()
         wkbType = layer.wkbType()
         srid = layer.crs().postgisSrid()
+        field = unicode(self.getParameterValue(self.FIELD))
+        statsatt = unicode(self.getParameterValue(self.STATSATT))
+        stats = self.getParameterValue(self.STATS)
+        area = self.getParameterValue(self.AREA)
+        single = self.getParameterValue(self.SINGLE)
+        count = self.getParameterValue(self.COUNT)
         schema = unicode(self.getParameterValue(self.SCHEMA))
         table = unicode(self.getParameterValue(self.TABLE))
-        if len(fields) > 0:
-           fieldstring = "," + fields
-        else:
-           fieldstring = ""
-
-        if wkbType == 3:
-           layertype = "POLYGON"              
-           sqlstring = "-sql \"SELECT (ST_Dump(ST_MakeValid(g1." + geomColumn + "))).geom::geometry(" + layertype + "," + str(srid) + ") AS geom" + fieldstring + " FROM " + layername + " AS g1\" -nlt " + layertype + " -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
-        else:
-            layertype = "MULTIPOLYGON"            
-            sqlstring = "-sql \"SELECT (ST_MakeValid(g1." + geomColumn + "))::geometry(" + layertype + "," + str(srid) + ") AS geom" + fieldstring + " FROM " + layername + " AS g1\" -nlt " + layertype + " -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
-
         options = unicode(self.getParameterValue(self.OPTIONS))
 
+        if single:
+           layertype = "POLYGON"              
+        else:
+           layertype = "MULTIPOLYGON"
+
+        if single:
+            querystart = '-sql "SELECT (ST_Dump(ST_Union(' + geomColumn + '))).geom::geometry(POLYGON,' + str(srid) + '), ' + field
+        else:
+            querystart = '-sql "SELECT (ST_Multi(ST_Union(' + geomColumn + ')))::geometry(MULTIPOLYGON,' + str(srid) + '), ' + field
+
+        queryend = ' FROM ' + layername + ' GROUP BY ' + field + '"' + " -nln " + table + " -lco SCHEMA=" + schema + " -nlt " + layertype + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+
+        #if fields:
+        #   queryfields = ",*"
+        #else:
+        #   queryfields = "," + field
+        if count:
+           querycount = ", COUNT(" + geomColumn + ") AS count"
+        else:
+           querycount = ""
+        if stats:
+           querystats = ", SUM(" + statsatt + ") AS sum_dissolved, MIN(" + statsatt + ") AS min_dissolved, MAX(" + statsatt + ") AS max_dissolved, AVG(" + statsatt + ") AS avg_dissolved"
+        else:
+           querystats = ""
+        if area:
+           queryarea = ", SUM(ST_area(" + geomColumn + ")) AS area_dissolved, ST_perimeter(ST_union(" + geomColumn + ")) AS perimeter_dissolved"
+        else:
+           queryarea = ""
+        query = querystart + querystats + queryarea + querycount +  queryend
+        #query = querystart + queryfields + querycount + querystats + queryarea + queryend
         arguments = []
         arguments.append('-f')
         arguments.append('PostgreSQL')
         arguments.append(ogrLayer)
         arguments.append(ogrLayer)
-        arguments.append(sqlstring)
+        arguments.append(query)
         arguments.append('-overwrite')
                 
         if len(options) > 0:
             arguments.append(options)
+
         commands = []
         if isWindows():
             commands = ['cmd.exe', '/C ', 'ogr2ogr.exe',

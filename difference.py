@@ -50,12 +50,10 @@ class difference(OgrAlgorithm):
 
     INPUT_LAYER_A = 'INPUT_LAYER_A'
     INPUT_LAYER_B = 'INPUT_LAYER_B'
-    FIELD_A = 'FIELD_A'
-    FIELD_B = 'FIELD_B'
     FIELDS_A = 'FIELDS_A'
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
-    MULTI = 'MULTI'    
+    SINGLE = 'SINGLE'    
     OPTIONS = 'OPTIONS'
     OUTPUT = 'OUTPUT'
     
@@ -68,20 +66,16 @@ class difference(OgrAlgorithm):
 
         self.addParameter(ParameterVector(self.INPUT_LAYER_A, 'Input layer',
                           [ParameterVector.VECTOR_TYPE_POLYGON], False))
-        self.addParameter(ParameterTableField(self.FIELD_A, 'First input layer ID',
-                          self.INPUT_LAYER_A, optional=False))
-        self.addParameter(ParameterString(self.FIELDS_A, 'Fields/attributes of input layer to be kept in results (comma separated list)',
+        self.addParameter(ParameterString(self.FIELDS_A, 'Attributes to keep (comma separated list). Aliasing permitted.',
                           '', optional=False))
         self.addParameter(ParameterVector(self.INPUT_LAYER_B, 'Layer to be subtracted',
                           [ParameterVector.VECTOR_TYPE_POLYGON], False))
-        self.addParameter(ParameterTableField(self.FIELD_B, 'Second input layer ID',
-                          self.INPUT_LAYER_B, optional=False))
         self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
                           'public', optional=False))
         self.addParameter(ParameterString(self.TABLE, 'Output table name',
                           'difference', optional=False))
-        self.addParameter(ParameterBoolean(self.MULTI,
-                          'Output as multipart geometries?', True))
+        self.addParameter(ParameterBoolean(self.SINGLE,
+                          'Force output as singlepart', False))
         self.addParameter(ParameterString(self.OPTIONS, 'Additional creation options (see ogr2ogr manual)',
                           '', optional=True))
         self.addOutput(OutputHTML(self.OUTPUT, 'Output log'))
@@ -93,8 +87,6 @@ class difference(OgrAlgorithm):
         inLayerB = self.getParameterValue(self.INPUT_LAYER_B)
         ogrLayerB = self.ogrConnectionString(inLayerB)[1:-1]
         layernameB = self.ogrLayerName(inLayerB)
-        fieldA = unicode(self.getParameterValue(self.FIELD_A))
-        fieldB = unicode(self.getParameterValue(self.FIELD_B))
         fieldsA = unicode(self.getParameterValue(self.FIELDS_A))
         dsUriA = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_A))
         geomColumnA = dsUriA.geometryColumn()
@@ -102,16 +94,16 @@ class difference(OgrAlgorithm):
         geomColumnB = dsUriB.geometryColumn()
         schema = unicode(self.getParameterValue(self.SCHEMA))
         table = unicode(self.getParameterValue(self.TABLE))
-        multi = self.getParameterValue(self.MULTI)
+        single = self.getParameterValue(self.SINGLE)
         if len(fieldsA) > 0:
            fieldstring = "," + fieldsA
         else:
            fieldstring = ""        
 
-        if multi:
-           sqlstring = "-sql \"SELECT (ST_Multi(ST_Difference(g1." + geomColumnA + ",ST_Union(g2." + geomColumnB + "))))::geometry(MultiPolygon) AS geom, g1. " + fieldA + " AS id_input" + fieldstring + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 GROUP BY g1." + geomColumnA + ",g1." + fieldA + "\""" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -nlt MULTIPOLYGON -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+        if single:
+           sqlstring = "-sql \"SELECT (ST_Dump(ST_Difference(g1." + geomColumnA + ",ST_Union(g2." + geomColumnB + ")))).geom::geometry(Polygon) AS geom" + fieldstring + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 GROUP BY g1." + geomColumnA + fieldstring + "\""" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -nlt POLYGON -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
         else:
-           sqlstring = "-sql \"SELECT (ST_Dump(ST_Difference(g1." + geomColumnA + ",ST_Union(g2." + geomColumnB + ")))).geom::geometry(Polygon) AS geom, g1. " + fieldA + " AS id_input" + fieldstring + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 GROUP BY g1." + geomColumnA + ",g1." + fieldA + "\""" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -nlt POLYGON -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+           sqlstring = "-sql \"SELECT (ST_Multi(ST_CollectionExtract(ST_Difference(g1." + geomColumnA + ",ST_Union(g2." + geomColumnB + ")),3)))::geometry(MultiPolygon) AS geom" + fieldstring + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 GROUP BY g1." + geomColumnA + fieldstring + "\""" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -nlt MULTIPOLYGON -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
 
         options = unicode(self.getParameterValue(self.OPTIONS))
 

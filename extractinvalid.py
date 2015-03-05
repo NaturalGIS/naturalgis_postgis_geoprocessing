@@ -2,7 +2,7 @@
 
 """
 ***************************************************************************
-    clipbypolygon.py
+    extractinvalid.py
     ---------------------
     Date                 : January 2015
     Copyright            : (C) 2015 by Giovanni Manghi
@@ -46,15 +46,12 @@ from processing.tools import dataobjects
 from processing.algs.gdal.OgrAlgorithm import OgrAlgorithm
 from processing.algs.gdal.GdalUtils import GdalUtils
 
-class clipbypolygon(OgrAlgorithm):
+class extractinvalid(OgrAlgorithm):
 
-    INPUT_LAYER_A = 'INPUT_LAYER_A'
-    INPUT_LAYER_B = 'INPUT_LAYER_B'
-    FIELDS_A = 'FIELDS_A'
-    FIELDS_B = 'FIELDS_B'
+    INPUT_LAYER = 'INPUT_LAYER'
+    FIELDS = 'FIELDS'    
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
-    MULTI = 'MULTI' 
     OPTIONS = 'OPTIONS'
     OUTPUT = 'OUTPUT'
     
@@ -62,66 +59,53 @@ class clipbypolygon(OgrAlgorithm):
         return  QIcon(os.path.dirname(__file__) + '/icons/postgis.png')
 
     def defineCharacteristics(self):
-        self.name = 'Clip polygons (Intersection)'
+        self.name = 'Extract invalid polygons (ST_IsValid)'
         self.group = 'Vector geoprocessing'
 
-        self.addParameter(ParameterVector(self.INPUT_LAYER_A, 'Clip layer',
+        self.addParameter(ParameterVector(self.INPUT_LAYER, 'Input layer',
                           [ParameterVector.VECTOR_TYPE_POLYGON], False))
-        self.addParameter(ParameterString(self.FIELDS_A, 'Attributes to keep (comma separated list). Aliasing permitted.',
-                          '', optional=False))
-        self.addParameter(ParameterVector(self.INPUT_LAYER_B, 'Layer to be clipped',
-                          [ParameterVector.VECTOR_TYPE_POLYGON], False))
-        self.addParameter(ParameterString(self.FIELDS_B, 'Attributes to keep (comma separated list). Aliasing permitted.',
+        self.addParameter(ParameterString(self.FIELDS, 'Attributes to keep (comma separated list). Aliasing permitted.',
                           '', optional=False))
         self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
                           'public', optional=False))
         self.addParameter(ParameterString(self.TABLE, 'Output table name',
-                          'clip', optional=False))
-        self.addParameter(ParameterBoolean(self.MULTI,
-                          'Output as multipart geometries?', True))
+                          'invalid_polygons', optional=False))
         self.addParameter(ParameterString(self.OPTIONS, 'Additional creation options (see ogr2ogr manual)',
                           '', optional=True))
         self.addOutput(OutputHTML(self.OUTPUT, 'Output log'))
         
     def processAlgorithm(self, progress):
-        inLayerA = self.getParameterValue(self.INPUT_LAYER_A)
-        ogrLayerA = self.ogrConnectionString(inLayerA)[1:-1]
-        layernameA = self.ogrLayerName(inLayerA)
-        inLayerB = self.getParameterValue(self.INPUT_LAYER_B)
-        ogrLayerB = self.ogrConnectionString(inLayerB)[1:-1]
-        layernameB = self.ogrLayerName(inLayerB)
-        fieldsA = unicode(self.getParameterValue(self.FIELDS_A))
-        fieldsB = unicode(self.getParameterValue(self.FIELDS_B))
-        dsUriA = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_A))
-        geomColumnA = dsUriA.geometryColumn()
-        dsUriB = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_B))
-        geomColumnB = dsUriB.geometryColumn()
+        inLayer = self.getParameterValue(self.INPUT_LAYER)
+        ogrLayer = self.ogrConnectionString(inLayer)[1:-1]
+        layername = self.ogrLayerName(inLayer)
+        fields = unicode(self.getParameterValue(self.FIELDS))
+        dsUri = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER))
+        geomColumn = dsUri.geometryColumn()
+        layer = dataobjects.getObjectFromUri(self.getParameterValue(self.INPUT_LAYER))
+        geomType = layer.geometryType()
+        wkbType = layer.wkbType()
+        srid = layer.crs().postgisSrid()
         schema = unicode(self.getParameterValue(self.SCHEMA))
         table = unicode(self.getParameterValue(self.TABLE))
-        multi = self.getParameterValue(self.MULTI)
-        if len(fieldsB) > 0:
-           fieldstringB = "," + fieldsB
+        if len(fields) > 0:
+           fieldstring = "," + fields
         else:
-           fieldstringB = ""        
+           fieldstring = ""
 
-        if len(fieldsA) > 0:
-           fieldstringA = "," + fieldsA
+        if wkbType == 3:
+           layertype = "POLYGON"              
+           sqlstring = "-sql \"SELECT (ST_Dump(g1." + geomColumn + ")).geom::geometry(" + layertype + "," + str(srid) + ") AS geom, ST_IsValidReason(" + geomColumn + ") AS invalid_reason" + fieldstring + " FROM " + layername + " AS g1 WHERE NOT ST_IsValid(" + geomColumn + ")\" -nlt " + layertype + " -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
         else:
-           fieldstringA = ""   
-       
-        if multi:
-           multistring = "-nlt MULTIPOLYGON"
-        else:
-           multistring = "-nlt POLYGON"
-           
-        sqlstring = "-sql \"SELECT ST_Intersection(g1." + geomColumnA + ",g2." + geomColumnB + ") AS geom" + fieldstringA + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+            layertype = "MULTIPOLYGON"            
+            sqlstring = "-sql \"SELECT (g1." + geomColumn + ")::geometry(" + layertype + "," + str(srid) + ") AS geom, ST_IsValidReason(" + geomColumn + ") AS invalid_reason" + fieldstring + " FROM " + layername + " AS g1 WHERE NOT ST_IsValid(" + geomColumn + ")\" -nlt " + layertype + " -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+
         options = unicode(self.getParameterValue(self.OPTIONS))
 
         arguments = []
         arguments.append('-f')
         arguments.append('PostgreSQL')
-        arguments.append(ogrLayerA)
-        arguments.append(ogrLayerA)
+        arguments.append(ogrLayer)
+        arguments.append(ogrLayer)
         arguments.append(sqlstring)
         arguments.append('-overwrite')
                 
