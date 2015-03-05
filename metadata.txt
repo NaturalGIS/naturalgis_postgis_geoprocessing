@@ -19,5 +19,6 @@ changelog=0.2
     - Added buffer tool
     - Added extract invalid polygons tool (ST_IsValid)
     - Added fix invalid polygons (ST_Buffer)
+    - Added dissolve tool
   0.1
     - First commit
