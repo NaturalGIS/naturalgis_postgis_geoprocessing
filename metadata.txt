@@ -16,6 +16,7 @@ experimental=True
 deprecated=False
 changelog=0.3
     - Added buffer tool (variable distance)
+    - Added "disslve all" option to dissolve tool
    0.2
     - Optimized several queries
     - Added buffer tool (fixed distance)
