@@ -51,6 +51,7 @@ class dissolve(OgrAlgorithm):
     OUTPUT_LAYER = 'OUTPUT_LAYER'
     INPUT_LAYER = 'INPUT_LAYER'
     FIELD = 'FIELD'
+    DISSOLVEALL = 'DISSOLVEALL'
     SINGLE = 'SINGLE'
     COUNT = 'COUNT'
     STATS = 'STATS'
@@ -70,8 +71,10 @@ class dissolve(OgrAlgorithm):
 
         self.addParameter(ParameterVector(self.INPUT_LAYER,
             self.tr('Input layer'), [ParameterVector.VECTOR_TYPE_POLYGON], False))
+        self.addParameter(ParameterBoolean(self.DISSOLVEALL,
+            self.tr('Dissolve all'), False))
         self.addParameter(ParameterTableField(self.FIELD,
-            self.tr('Dissolve field'), self.INPUT_LAYER))
+            self.tr('Dissolve field. Ignored if "Dissolve all" is selected.'), self.INPUT_LAYER))
         self.addParameter(ParameterBoolean(self.SINGLE,
             self.tr('Force output as singlepart'), False))
         self.addParameter(ParameterBoolean(self.COUNT,
@@ -108,6 +111,7 @@ class dissolve(OgrAlgorithm):
         count = self.getParameterValue(self.COUNT)
         schema = unicode(self.getParameterValue(self.SCHEMA))
         table = unicode(self.getParameterValue(self.TABLE))
+        dissolveall = self.getParameterValue(self.DISSOLVEALL)
         options = unicode(self.getParameterValue(self.OPTIONS))
 
         if single:
@@ -115,12 +119,20 @@ class dissolve(OgrAlgorithm):
         else:
            layertype = "MULTIPOLYGON"
 
-        if single:
-            querystart = '-sql "SELECT (ST_Dump(ST_Union(' + geomColumn + '))).geom::geometry(POLYGON,' + str(srid) + '), ' + field
+        if dissolveall:
+           fieldstring = ""
         else:
-            querystart = '-sql "SELECT (ST_Multi(ST_Union(' + geomColumn + ')))::geometry(MULTIPOLYGON,' + str(srid) + '), ' + field
+           fieldstring = "," + field
 
-        queryend = ' FROM ' + layername + ' GROUP BY ' + field + '"' + " -nln " + table + " -lco SCHEMA=" + schema + " -nlt " + layertype + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+        if single:
+            querystart = '-sql "SELECT (ST_Dump(ST_Union(' + geomColumn + '))).geom::geometry(POLYGON,' + str(srid) + ')' + fieldstring
+        else:
+            querystart = '-sql "SELECT (ST_Multi(ST_Union(' + geomColumn + ')))::geometry(MULTIPOLYGON,' + str(srid) + ')' + fieldstring
+
+        if dissolveall:
+            queryend = ' FROM ' + layername + '"' + " -nln " + table + " -lco SCHEMA=" + schema + " -nlt " + layertype + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+        else:
+            queryend = ' FROM ' + layername + ' GROUP BY ' + field + '"' + " -nln " + table + " -lco SCHEMA=" + schema + " -nlt " + layertype + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
 
         #if fields:
         #   queryfields = ",*"
