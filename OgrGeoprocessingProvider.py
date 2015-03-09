@@ -42,6 +42,7 @@ from postgis_geoprocessing.extractinvalid import extractinvalid
 from postgis_geoprocessing.bufferlayers import bufferlayers
 from postgis_geoprocessing.makevalidbufferzero import makevalidbufferzero
 from postgis_geoprocessing.bufferlayersvariable import bufferlayersvariable
+from postgis_geoprocessing.closestpoint import closestpoint
 
 class OgrGeoprocessingProvider(AlgorithmProvider):
 
@@ -50,7 +51,7 @@ class OgrGeoprocessingProvider(AlgorithmProvider):
 
         self.activate = False
 
-        self.alglist = [distance(),clipbypolygon(),makevalid(),difference(),dissolve(),extractinvalid(),bufferlayers(),makevalidbufferzero(),bufferlayersvariable()]
+        self.alglist = [distance(),clipbypolygon(),makevalid(),difference(),dissolve(),extractinvalid(),bufferlayers(),makevalidbufferzero(),bufferlayersvariable(),closestpoint()]
         for alg in self.alglist:
             alg.provider = self
 

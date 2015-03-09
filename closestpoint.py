@@ -2,7 +2,7 @@
 
 """
 ***************************************************************************
-    distance.py
+    closestpoint.py
     ---------------------
     Date                 : January 2015
     Copyright            : (C) 2015 by Giovanni Manghi
@@ -46,13 +46,14 @@ from processing.tools import dataobjects
 from processing.algs.gdal.OgrAlgorithm import OgrAlgorithm
 from processing.algs.gdal.GdalUtils import GdalUtils
 
-class distance(OgrAlgorithm):
+class closestpoint(OgrAlgorithm):
 
     OUTPUT_LAYER = 'OUTPUT_LAYER'
     INPUT_LAYER_A = 'INPUT_LAYER_A'
     INPUT_LAYER_B = 'INPUT_LAYER_B'
     FIELD_A = 'FIELD_A'
     FIELD_B = 'FIELD_B'
+    FIELDS = 'FIELDS'
     MULTI = 'MULTI' 
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
@@ -63,13 +64,15 @@ class distance(OgrAlgorithm):
         return  QIcon(os.path.dirname(__file__) + '/icons/postgis.png')
 
     def defineCharacteristics(self):
-        self.name = 'Minimum distance'
+        self.name = 'Closest point (with distance)'
         self.group = 'Vector geoprocessing'
 
         self.addParameter(ParameterVector(self.INPUT_LAYER_A, '"FROM" layer',
                           [ParameterVector.VECTOR_TYPE_ANY], False))
         self.addParameter(ParameterTableField(self.FIELD_A, '"FROM" layer ID',
                           self.INPUT_LAYER_A, optional=False))
+        self.addParameter(ParameterString(self.FIELDS, 'Attributes to keep of layer "FROM" (comma separated list). Aliasing permitted.',
+                          '', optional=False))
         self.addParameter(ParameterVector(self.INPUT_LAYER_B, '"TO" layer',
                           [ParameterVector.VECTOR_TYPE_ANY], False))
         self.addParameter(ParameterTableField(self.FIELD_B, '"TO" layer layer ID',
@@ -79,7 +82,7 @@ class distance(OgrAlgorithm):
         self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
                           'public', optional=False))
         self.addParameter(ParameterString(self.TABLE, 'Output table name',
-                          'distance_analysis', optional=False))
+                          'closest_point', optional=False))
         self.addParameter(ParameterString(self.OPTIONS, 'Additional creation options (see ogr2ogr manual)',
                           '', optional=True))
         self.addOutput(OutputHTML(self.OUTPUT, 'Output log'))
@@ -105,13 +108,20 @@ class distance(OgrAlgorithm):
         geomTypeB = layerB.geometryType()
         wkbTypeB = layerB.wkbType()
         sridB = layerB.crs().postgisSrid()
+        fields = unicode(self.getParameterValue(self.FIELDS))
         multi = self.getParameterValue(self.MULTI)
         schema = unicode(self.getParameterValue(self.SCHEMA))
         table = unicode(self.getParameterValue(self.TABLE))
-        if multi:
-           sqlstring = "-sql \"WITH temp_table AS (SELECT ST_Union(" + geomColumnB + ") AS geom FROM " + layernameB + ") SELECT ST_ShortestLine(g1." + geomColumnA + ",g2.geom) AS geom, ST_Distance(g1." + geomColumnA + ",g2.geom) AS distance, g1." + fieldA + " AS id_from FROM " + layernameA + " AS g1, temp_table AS g2\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom -nlt LINESTRING --config PG_USE_COPY YES -a_srs EPSG:" + str(sridA) + ""
+
+        if len(fields) > 0:
+           fieldstring =  "," + fields
         else:
-           sqlstring = "-sql \"SELECT ST_ShortestLine(g1." + geomColumnA + ",g2." + geomColumnB + ") AS geom, ST_Distance(g1." + geomColumnA + ",g2." + geomColumnB + ") AS distance, g1." + fieldA + " AS id_from, g2." + fieldB + " AS id_to FROM " + layernameA + " AS g1, " + layernameB + " AS g2\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom -nlt LINESTRING --config PG_USE_COPY YES"
+           fieldstring = ""
+
+        if multi:
+           sqlstring = "-sql \"WITH temp_table AS (SELECT ST_Union(" + geomColumnB + ") AS geom FROM " + layernameB + ") SELECT (ST_ClosestPoint(g2.geom, g1." + geomColumnA + "))::geometry(POINT," + str(sridA) + ") AS geom, ST_Distance(g1." + geomColumnA + ",g2.geom) AS distance, g1." + fieldA + " AS id_from" + fieldstring +  " FROM " + layernameA + " AS g1, temp_table AS g2\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom -nlt POINT --config PG_USE_COPY YES -a_srs EPSG:" + str(sridA) + ""
+        else:
+           sqlstring = "-sql \"SELECT (ST_ClosestPoint(g2." + geomColumnB + ",g1." + geomColumnA + "))::geometry(Point," + str(sridA) + ") AS geom, ST_Distance(g1." + geomColumnA + ",g2." + geomColumnB + ") AS distance, g1." + fieldA + " AS id_from" + fieldstring + ", g2." + fieldB + " AS id_to FROM " + layernameA + " AS g1, " + layernameB + " AS g2\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom -nlt POINT --config PG_USE_COPY YES"
 
         options = unicode(self.getParameterValue(self.OPTIONS))
 
@@ -141,4 +151,4 @@ class distance(OgrAlgorithm):
         for s in GdalUtils.getConsoleOutput()[1:]:
             f.write(unicode(s))
         f.write('</pre>')
-        f.close()        
+        f.close()
