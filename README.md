@@ -17,6 +17,8 @@ This tools will benefit from a few improvements will be made to the QGIS Process
 
 Supported operations:
 
+- Distance matrix
+
 - Buffer (fixed distance)
 
 - Buffer (variable distance)
