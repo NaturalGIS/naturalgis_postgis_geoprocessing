@@ -61,7 +61,7 @@ class difference(OgrAlgorithm):
         return  QIcon(os.path.dirname(__file__) + '/icons/postgis.png')
 
     def defineCharacteristics(self):
-        self.name = 'Polygon Difference (non symmetrical)'
+        self.name = 'Polygon difference (non symmetrical)'
         self.group = 'Vector geoprocessing'
 
         self.addParameter(ParameterVector(self.INPUT_LAYER_A, 'Input layer',

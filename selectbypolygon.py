@@ -2,7 +2,7 @@
 
 """
 ***************************************************************************
-    clipbypolygon.py
+    selectbypolygon.py
     ---------------------
     Date                 : January 2015
     Copyright            : (C) 2015 by Giovanni Manghi
@@ -46,16 +46,16 @@ from processing.tools import dataobjects
 from processing.algs.gdal.OgrAlgorithm import OgrAlgorithm
 from processing.algs.gdal.GdalUtils import GdalUtils
 
-class clipbypolygon(OgrAlgorithm):
+class selectbypolygon(OgrAlgorithm):
 
     INPUT_LAYER_A = 'INPUT_LAYER_A'
     INPUT_LAYER_B = 'INPUT_LAYER_B'
-    FIELDS_A = 'FIELDS_A'
     FIELDS_B = 'FIELDS_B'
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
     SINGLE = 'SINGLE' 
     KEEP = 'KEEP' 
+    KEEPC = 'KEEPC'
     OPTIONS = 'OPTIONS'
     OUTPUT = 'OUTPUT'
     
@@ -63,25 +63,25 @@ class clipbypolygon(OgrAlgorithm):
         return  QIcon(os.path.dirname(__file__) + '/icons/postgis.png')
 
     def defineCharacteristics(self):
-        self.name = 'Clip with polygons (Intersection)'
+        self.name = 'Select by polygons (select by location)'
         self.group = 'Vector geoprocessing'
 
-        self.addParameter(ParameterVector(self.INPUT_LAYER_A, 'Clip polygon layer',
+        self.addParameter(ParameterVector(self.INPUT_LAYER_A, 'Polygon layer used for the selection',
                           [ParameterVector.VECTOR_TYPE_POLYGON], False))
-        self.addParameter(ParameterString(self.FIELDS_A, 'Attributes to keep (comma separated list). Aliasing permitted.',
-                          '', optional=False))
-        self.addParameter(ParameterVector(self.INPUT_LAYER_B, 'Layer to be clipped',
+        self.addParameter(ParameterVector(self.INPUT_LAYER_B, 'Select features from',
                           [ParameterVector.VECTOR_TYPE_ANY], False))
         self.addParameter(ParameterString(self.FIELDS_B, 'Attributes to keep (comma separated list). Aliasing permitted.',
                           '', optional=False))
         self.addParameter(ParameterBoolean(self.SINGLE,
                           'Force output as singlepart', True))
+        self.addParameter(ParameterBoolean(self.KEEPC,
+                          'Select only lines and polygons inside of selection layer (not used when selecting points)', False))
         self.addParameter(ParameterBoolean(self.KEEP,
-                          'Keep points and lines on borders of clip polygons (not used when clipping polygons)', True))
+                          'Select also features just touching the selection layer', False))
         self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
                           'public', optional=False))
         self.addParameter(ParameterString(self.TABLE, 'Output table name',
-                          'clip', optional=False))
+                          'select', optional=False))
         self.addParameter(ParameterString(self.OPTIONS, 'Additional creation options (see ogr2ogr manual)',
                           '', optional=True))
         self.addOutput(OutputHTML(self.OUTPUT, 'Output log'))
@@ -93,7 +93,6 @@ class clipbypolygon(OgrAlgorithm):
         inLayerB = self.getParameterValue(self.INPUT_LAYER_B)
         ogrLayerB = self.ogrConnectionString(inLayerB)[1:-1]
         layernameB = self.ogrLayerName(inLayerB)
-        fieldsA = unicode(self.getParameterValue(self.FIELDS_A))
         fieldsB = unicode(self.getParameterValue(self.FIELDS_B))
         dsUriA = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_A))
         geomColumnA = dsUriA.geometryColumn()
@@ -107,15 +106,12 @@ class clipbypolygon(OgrAlgorithm):
         table = unicode(self.getParameterValue(self.TABLE))
         single = self.getParameterValue(self.SINGLE)
         keep = self.getParameterValue(self.KEEP)
+        keepc = self.getParameterValue(self.KEEPC)
+        
         if len(fieldsB) > 0:
            fieldstringB = "," + fieldsB
         else:
-           fieldstringB = ""        
-
-        if len(fieldsA) > 0:
-           fieldstringA = "," + fieldsA
-        else:
-           fieldstringA = ""   
+           fieldstringB = ""          
 
         if geomTypeB == 0:
            type = "POINT"
@@ -137,16 +133,31 @@ class clipbypolygon(OgrAlgorithm):
            
         if geomTypeB == 0:        
            if keep:
-              sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringA + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+              sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
            else:
               sqlstring = "-sql \"WITH temp_table AS (SELECT ST_Union(" + geomColumnA + ") AS geom FROM " + layernameA + ") SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM temp_table AS g1, " + layernameB + " AS g2 WHERE ST_Contains(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES -a_srs EPSG:" + str(sridB) + ""
         elif geomTypeB == 1:
-           if keep:
-              sqlstring = "-sql \"SELECT (" + st_function + "(ST_CollectionExtract(ST_Intersection(g1." + geomColumnA + ",g2." + geomColumnB + "),2)))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringA + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+           if keepc:
+              if keep:
+                 sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Contains(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+              else:
+                 sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_ContainsProperly(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
            else:
-              sqlstring = "-sql \"SELECT (" + st_function + "(ST_Intersection(g1." + geomColumnA + ",g2." + geomColumnB + ")))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringA + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g1." + geomColumnA + ",g2." + geomColumnB + ") is true AND ST_Touches(g1." + geomColumnA + ",g2." + geomColumnB + ") is false\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+              if keep:
+                 sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+              else:
+                 sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g1." + geomColumnA + ",g2." + geomColumnB + ") is true AND ST_Touches(g1." + geomColumnA + ",g2." + geomColumnB + ") is false\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
         else:
-             sqlstring = "-sql \"SELECT (" + st_function + "(ST_Intersection(g1." + geomColumnA + ",g2." + geomColumnB + ")))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringA + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Contains(g1." + geomColumnA + ",g2." + geomColumnB + ") is true OR ST_Overlaps(g1." + geomColumnA + ",g2." + geomColumnB + ") is true OR ST_Contains(g2." + geomColumnB + ",g1." + geomColumnA + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+           if keepc:
+              if keep:
+                 sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Contains(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+              else:
+                 sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_ContainsProperly(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+           else:
+              if keep:
+                 sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g1." + geomColumnA + ",g2." + geomColumnB + ") is true OR ST_Contains(g2." + geomColumnB + ",g1." + geomColumnA + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+              else:
+                 sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Contains(g1." + geomColumnA + ",g2." + geomColumnB + ") is true OR ST_Overlaps(g1." + geomColumnA + ",g2." + geomColumnB + ") is true OR ST_Contains(g2." + geomColumnB+ ",g1." + geomColumnA + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
 
         options = unicode(self.getParameterValue(self.OPTIONS))
 

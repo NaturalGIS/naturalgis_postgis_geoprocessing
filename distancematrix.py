@@ -65,7 +65,7 @@ class distancematrix(OgrAlgorithm):
 
         self.addParameter(ParameterVector(self.INPUT_LAYER_A, 'Input layer',
                           [ParameterVector.VECTOR_TYPE_ANY], False))
-        self.addParameter(ParameterTableField(self.FIELD_A, 'Input layer Primary Key',
+        self.addParameter(ParameterTableField(self.FIELD_A, 'Input layer unique ID',
                           self.INPUT_LAYER_A, optional=False))
         self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
                           'public', optional=False))
