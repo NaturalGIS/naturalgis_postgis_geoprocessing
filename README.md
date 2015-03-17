@@ -17,6 +17,10 @@ This tools will benefit from a few improvements will be made to the QGIS Process
 
 Supported operations:
 
+- Select by (select by location)
+
+- Sample polygons with points
+
 - Distance matrix
 
 - Buffer (fixed distance)

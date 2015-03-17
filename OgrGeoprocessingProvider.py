@@ -47,6 +47,7 @@ from postgis_geoprocessing.distancematrix import distancematrix
 from postgis_geoprocessing.selectbypolygon import selectbypolygon
 from postgis_geoprocessing.selectbypoint import selectbypoint
 from postgis_geoprocessing.selectbyline import selectbyline
+from postgis_geoprocessing.samplewithpoints import samplewithpoints
 
 class OgrGeoprocessingProvider(AlgorithmProvider):
 
@@ -57,7 +58,7 @@ class OgrGeoprocessingProvider(AlgorithmProvider):
 
         self.alglist = [distance(),clipbypolygon(),makevalid(),difference(),dissolve(),extractinvalid(),
                         bufferlayers(),makevalidbufferzero(),bufferlayersvariable(),closestpoint(),distancematrix(),
-                        selectbypolygon(),selectbypoint(),selectbyline()]
+                        selectbypolygon(),selectbypoint(),selectbyline(),samplewithpoints()]
         for alg in self.alglist:
             alg.provider = self
 
