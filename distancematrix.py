@@ -88,7 +88,7 @@ class distancematrix(OgrAlgorithm):
         sridA = layerA.crs().postgisSrid()
         schema = unicode(self.getParameterValue(self.SCHEMA))
         table = unicode(self.getParameterValue(self.TABLE))
-        sqlstring = "-sql \"SELECT ST_Makeline(g1." + geomColumnA + ",g2." + geomColumnA + ") AS geom, ST_Distance(g1." + geomColumnA + ",g2." + geomColumnA + ") AS distance, g1." + fieldA + " AS id_from, g2." + fieldA + " AS id_to FROM " + layernameA + " AS g1, " + layernameA + " AS g2 WHERE g1." + fieldA + " > " + "g2." + fieldA +"\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom -nlt LINESTRING --config PG_USE_COPY YES"
+        sqlstring = "-sql \"SELECT ST_Makeline(g1." + geomColumnA + ",g2." + geomColumnA + ") AS geom, ST_Distance(g1." + geomColumnA + ",g2." + geomColumnA + ") AS distance, g1." + fieldA + " AS id_from, g2." + fieldA + " AS id_to FROM " + layernameA + " AS g1, " + layernameA + " AS g2 WHERE g1." + fieldA + " > " + "g2." + fieldA +"\" -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom -nlt LINESTRING --config PG_USE_COPY YES"
 
         options = unicode(self.getParameterValue(self.OPTIONS))
 

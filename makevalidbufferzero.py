@@ -94,10 +94,10 @@ class makevalidbufferzero(OgrAlgorithm):
 
         if wkbType == 3:
            layertype = "POLYGON"              
-           sqlstring = "-sql \"SELECT (ST_Dump(ST_Buffer(g1." + geomColumn + ",0))).geom::geometry(" + layertype + "," + str(srid) + ") AS geom" + fieldstring + " FROM " + layername + " AS g1\" -nlt " + layertype + " -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+           sqlstring = "-sql \"SELECT (ST_Dump(ST_Buffer(g1." + geomColumn + ",0))).geom::geometry(" + layertype + "," + str(srid) + ") AS geom" + fieldstring + " FROM " + layername + " AS g1\" -nlt " + layertype + " -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
         else:
             layertype = "MULTIPOLYGON"            
-            sqlstring = "-sql \"SELECT (ST_Multi(ST_Buffer(g1." + geomColumn + ",0)))::geometry(" + layertype + "," + str(srid) + ") AS geom" + fieldstring + " FROM " + layername + " AS g1\" -nlt " + layertype + " -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+            sqlstring = "-sql \"SELECT (ST_Multi(ST_Buffer(g1." + geomColumn + ",0)))::geometry(" + layertype + "," + str(srid) + ") AS geom" + fieldstring + " FROM " + layername + " AS g1\" -nlt " + layertype + " -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
 
         options = unicode(self.getParameterValue(self.OPTIONS))
 

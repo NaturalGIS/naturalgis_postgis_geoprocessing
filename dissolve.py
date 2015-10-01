@@ -130,9 +130,9 @@ class dissolve(OgrAlgorithm):
             querystart = '-sql "SELECT (ST_Multi(ST_Union(' + geomColumn + ')))::geometry(MULTIPOLYGON,' + str(srid) + ')' + fieldstring
 
         if dissolveall:
-            queryend = ' FROM ' + layername + '"' + " -nln " + table + " -lco SCHEMA=" + schema + " -nlt " + layertype + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+            queryend = ' FROM ' + layername + '"' + " -nln " + schema + "." + table + " -nlt " + layertype + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
         else:
-            queryend = ' FROM ' + layername + ' GROUP BY ' + field + '"' + " -nln " + table + " -lco SCHEMA=" + schema + " -nlt " + layertype + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+            queryend = ' FROM ' + layername + ' GROUP BY ' + field + '"' + " -nln " + schema + "." + table + " -nlt " + layertype + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
 
         #if fields:
         #   queryfields = ",*"

@@ -128,7 +128,7 @@ class samplewithpoints(OgrAlgorithm):
            st_function = "ST_Multi"
            castgeom = ""           
 
-        sqlstring = "-sql \"SELECT (" + st_function + "(g1." + geomColumnA + "))" + castgeom + "::geometry(" + caststring + "," + str(sridA) + ") AS geom, g2." + fieldB + " AS " + fieldA + fieldstringA + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2  WHERE ST_Intersects(g2." + geomColumnB + ",g1." + geomColumnA + ") is true\" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+        sqlstring = "-sql \"SELECT (" + st_function + "(g1." + geomColumnA + "))" + castgeom + "::geometry(" + caststring + "," + str(sridA) + ") AS geom, g2." + fieldB + " AS " + fieldA + fieldstringA + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2  WHERE ST_Intersects(g2." + geomColumnB + ",g1." + geomColumnA + ") is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
 
         options = unicode(self.getParameterValue(self.OPTIONS))
 

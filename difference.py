@@ -101,9 +101,9 @@ class difference(OgrAlgorithm):
            fieldstring = ""        
 
         if single:
-           sqlstring = "-sql \"SELECT (ST_Dump(ST_Difference(g1." + geomColumnA + ",ST_Union(g2." + geomColumnB + ")))).geom::geometry(Polygon) AS geom" + fieldstring + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 GROUP BY g1." + geomColumnA + fieldstring + "\""" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -nlt POLYGON -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+           sqlstring = "-sql \"SELECT (ST_Dump(ST_Difference(g1." + geomColumnA + ",ST_Union(g2." + geomColumnB + ")))).geom::geometry(Polygon) AS geom" + fieldstring + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 GROUP BY g1." + geomColumnA + fieldstring + "\""" -nln " + schema + "." + table + " -lco FID=gid -nlt POLYGON -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
         else:
-           sqlstring = "-sql \"SELECT (ST_Multi(ST_CollectionExtract(ST_Difference(g1." + geomColumnA + ",ST_Union(g2." + geomColumnB + ")),3)))::geometry(MultiPolygon) AS geom" + fieldstring + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 GROUP BY g1." + geomColumnA + fieldstring + "\""" -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -nlt MULTIPOLYGON -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+           sqlstring = "-sql \"SELECT (ST_Multi(ST_CollectionExtract(ST_Difference(g1." + geomColumnA + ",ST_Union(g2." + geomColumnB + ")),3)))::geometry(MultiPolygon) AS geom" + fieldstring + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 GROUP BY g1." + geomColumnA + fieldstring + "\""" -nln " + schema + "." + table + " -lco FID=gid -nlt MULTIPOLYGON -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
 
         options = unicode(self.getParameterValue(self.OPTIONS))
 

@@ -115,20 +115,20 @@ class bufferlayersvariable(OgrAlgorithm):
 
         if dissolveall:
              if single:
-                query = '-sql "SELECT (ST_Dump(ST_Multi(ST_Union(ST_Buffer(' + geomColumn + ',' + distance + '))))).geom::geometry(POLYGON,' + str(srid) + ') AS geom FROM ' + layername + '" -nln ' + table + ' -lco SCHEMA=' + schema + ' -nlt POLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
+                query = '-sql "SELECT (ST_Dump(ST_Multi(ST_Union(ST_Buffer(' + geomColumn + ',' + distance + '))))).geom::geometry(POLYGON,' + str(srid) + ') AS geom FROM ' + layername + '" -nln ' + schema + '.' + table + ' -nlt POLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
              else:
-                query = '-sql "SELECT (ST_Multi(ST_Union(ST_Buffer(' + geomColumn + ',' + distance + '))))::geometry(MULTIPOLYGON,' + str(srid) + ') AS geom FROM ' + layername + '" -nln ' + table + ' -lco SCHEMA=' + schema + ' -nlt MULTIPOLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
+                query = '-sql "SELECT (ST_Multi(ST_Union(ST_Buffer(' + geomColumn + ',' + distance + '))))::geometry(MULTIPOLYGON,' + str(srid) + ') AS geom FROM ' + layername + '" -nln ' + schema + '.' + table + ' -nlt MULTIPOLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
         else:
            if dissfield != 'None':
              if single:
-                query = '-sql "SELECT ' + dissfield + ',(ST_Dump(ST_Union(ST_Buffer(' + geomColumn + ',' + distance + ')))).geom::geometry(POLYGON,' + str(srid) + ') AS geom FROM ' + layername + ' GROUP BY ' + dissfield + '" -nln ' + table + ' -lco SCHEMA=' + schema + ' -nlt POLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'       
+                query = '-sql "SELECT ' + dissfield + ',(ST_Dump(ST_Union(ST_Buffer(' + geomColumn + ',' + distance + ')))).geom::geometry(POLYGON,' + str(srid) + ') AS geom FROM ' + layername + ' GROUP BY ' + dissfield + '" -nln ' + schema + '.' + table + ' -nlt POLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'       
              else:
-                query = '-sql "SELECT ' + dissfield + ',(ST_Multi(ST_Union(ST_Buffer(' + geomColumn + ',' + distance + '))))::geometry(MULTIPOLYGON,' + str(srid) + ') AS geom FROM ' + layername + ' GROUP BY ' + dissfield + '" -nln ' + table + ' -lco SCHEMA=' + schema + ' -nlt MULTIPOLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
+                query = '-sql "SELECT ' + dissfield + ',(ST_Multi(ST_Union(ST_Buffer(' + geomColumn + ',' + distance + '))))::geometry(MULTIPOLYGON,' + str(srid) + ') AS geom FROM ' + layername + ' GROUP BY ' + dissfield + '" -nln ' + schema + '.' + table + ' -nlt MULTIPOLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
            else:
              if single:
-                query = '-sql "SELECT ' + fieldstring + '(ST_Dump(ST_Multi(ST_Buffer(' + geomColumn + ',' + distance + ')))).geom::geometry(POLYGON,' + str(srid) + ') AS geom FROM ' + layername + '" -nln ' + table + ' -lco SCHEMA=' + schema + ' -nlt POLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
+                query = '-sql "SELECT ' + fieldstring + '(ST_Dump(ST_Multi(ST_Buffer(' + geomColumn + ',' + distance + ')))).geom::geometry(POLYGON,' + str(srid) + ') AS geom FROM ' + layername + '" -nln ' + schema + '.' + table + ' -nlt POLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
              else:
-                query = '-sql "SELECT ' + fieldstring + '(ST_Multi(ST_Buffer(' + geomColumn + ',' + distance + ')))::geometry(MULTIPOLYGON,' + str(srid) + ') AS geom FROM ' + layername + '" -nln ' + table + ' -lco SCHEMA=' + schema + ' -nlt MULTIPOLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
+                query = '-sql "SELECT ' + fieldstring + '(ST_Multi(ST_Buffer(' + geomColumn + ',' + distance + ')))::geometry(MULTIPOLYGON,' + str(srid) + ') AS geom FROM ' + layername + '" -nln ' + schema + '.' + table + ' -nlt MULTIPOLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
 
         print dissfield 
         arguments = []

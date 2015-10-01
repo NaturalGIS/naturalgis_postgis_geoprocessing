@@ -94,10 +94,10 @@ class makevalid(OgrAlgorithm):
 
         if wkbType == 3:
            layertype = "POLYGON"              
-           sqlstring = "-sql \"SELECT (ST_Dump(ST_MakeValid(g1." + geomColumn + "))).geom::geometry(" + layertype + "," + str(srid) + ") AS geom" + fieldstring + " FROM " + layername + " AS g1\" -nlt " + layertype + " -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+           sqlstring = "-sql \"SELECT (ST_Dump(ST_MakeValid(g1." + geomColumn + "))).geom::geometry(" + layertype + "," + str(srid) + ") AS geom" + fieldstring + " FROM " + layername + " AS g1\" -nlt " + layertype + " -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
         else:
             layertype = "MULTIPOLYGON"            
-            sqlstring = "-sql \"SELECT (ST_MakeValid(g1." + geomColumn + "))::geometry(" + layertype + "," + str(srid) + ") AS geom" + fieldstring + " FROM " + layername + " AS g1\" -nlt " + layertype + " -nln " + table + " -lco SCHEMA=" + schema + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+            sqlstring = "-sql \"SELECT (ST_MakeValid(g1." + geomColumn + "))::geometry(" + layertype + "," + str(srid) + ") AS geom" + fieldstring + " FROM " + layername + " AS g1\" -nlt " + layertype + " -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
 
         options = unicode(self.getParameterValue(self.OPTIONS))
 
