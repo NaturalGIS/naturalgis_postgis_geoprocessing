@@ -96,7 +96,8 @@ class difference(OgrAlgorithm):
         table = unicode(self.getParameterValue(self.TABLE))
         single = self.getParameterValue(self.SINGLE)
         if len(fieldsA) > 0:
-           fieldstring = "," + fieldsA
+           fieldstring = fieldsA.replace(",", ", g1.")
+           fieldstring = ", g1." + fieldstring               
         else:
            fieldstring = ""        
 

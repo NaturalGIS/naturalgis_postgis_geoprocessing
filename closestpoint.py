@@ -113,8 +113,9 @@ class closestpoint(OgrAlgorithm):
         schema = unicode(self.getParameterValue(self.SCHEMA))
         table = unicode(self.getParameterValue(self.TABLE))
 
-        if len(fields) > 0:
-           fieldstring =  "," + fields
+        if len(fields) > 0:           
+           fieldstring = fields.replace(",", ", g1.")
+           fieldstring = ", g1." + fieldstring           
         else:
            fieldstring = ""
 

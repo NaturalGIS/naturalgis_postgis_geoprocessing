@@ -111,7 +111,8 @@ class samplewithpoints(OgrAlgorithm):
         single = self.getParameterValue(self.SINGLE)
 
         if len(fieldsA) > 0:
-           fieldstringA = "," + fieldsA
+           fieldstringA = fieldsA.replace(",", ", g1.")
+           fieldstringA = ", g1." + fieldstringA
         else:
            fieldstringA = ""
         

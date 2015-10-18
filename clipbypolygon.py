@@ -108,12 +108,14 @@ class clipbypolygon(OgrAlgorithm):
         single = self.getParameterValue(self.SINGLE)
         keep = self.getParameterValue(self.KEEP)
         if len(fieldsB) > 0:
-           fieldstringB = "," + fieldsB
+           fieldstringB = fieldsB.replace(",", ", g2.")
+           fieldstringB = ", g2." + fieldstringB
         else:
            fieldstringB = ""        
 
         if len(fieldsA) > 0:
-           fieldstringA = "," + fieldsA
+           fieldstringA = fieldsA.replace(",", ", g1.")
+           fieldstringA = ", g1." + fieldstringA
         else:
            fieldstringA = ""   
 
@@ -139,7 +141,7 @@ class clipbypolygon(OgrAlgorithm):
            if keep:
               sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringA + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
            else:
-              sqlstring = "-sql \"WITH temp_table AS (SELECT ST_Union(" + geomColumnA + ") AS geom FROM " + layernameA + ") SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM temp_table AS g1, " + layernameB + " AS g2 WHERE ST_Contains(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES -a_srs EPSG:" + str(sridB) + ""
+              sqlstring = "-sql \"WITH temp_table AS (SELECT ST_Union(" + geomColumnA + ") AS geom FROM " + layernameA + ") SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringA + fieldstringB + " FROM temp_table AS g1, " + layernameB + " AS g2 WHERE ST_Contains(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES -a_srs EPSG:" + str(sridB) + ""
         elif geomTypeB == 1:
            if keep:
               sqlstring = "-sql \"SELECT (" + st_function + "(ST_CollectionExtract(ST_Intersection(g1." + geomColumnA + ",g2." + geomColumnB + "),2)))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringA + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"

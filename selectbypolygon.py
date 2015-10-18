@@ -109,7 +109,8 @@ class selectbypolygon(OgrAlgorithm):
         keepc = self.getParameterValue(self.KEEPC)
         
         if len(fieldsB) > 0:
-           fieldstringB = "," + fieldsB
+           fieldstringB = fieldsB.replace(",", ", g2.")
+           fieldstringB = ", g2." + fieldstringB
         else:
            fieldstringB = ""          
 

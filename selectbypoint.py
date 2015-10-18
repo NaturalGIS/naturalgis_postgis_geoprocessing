@@ -109,7 +109,8 @@ class selectbypoint(OgrAlgorithm):
         bufferdist = self.getParameterValue(self.BUFFER)
         
         if len(fieldsB) > 0:
-           fieldstringB = "," + fieldsB
+           fieldstringB = fieldsB.replace(",", ", g2.")
+           fieldstringB = ", g2." + fieldstringB
         else:
            fieldstringB = ""          
 

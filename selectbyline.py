@@ -72,7 +72,7 @@ class selectbyline(OgrAlgorithm):
                           [ParameterVector.VECTOR_TYPE_ANY], False))
         self.addParameter(ParameterString(self.FIELDS_B, 'Attributes to keep (comma separated list). Aliasing permitted.',
                           '', optional=False))
-        self.addParameter(ParameterString(self.BUFFER, 'Buffer distance for points selection layer.',
+        self.addParameter(ParameterString(self.BUFFER, 'Buffer distance for lines selection layer.',
                           '0', optional=False))
         self.addParameter(ParameterBoolean(self.SINGLE,
                           'Force output as singlepart', True))
@@ -109,7 +109,8 @@ class selectbyline(OgrAlgorithm):
         bufferdist = self.getParameterValue(self.BUFFER)
         
         if len(fieldsB) > 0:
-           fieldstringB = "," + fieldsB
+           fieldstringB = fieldsB.replace(",", ", g2.")
+           fieldstringB = ", g2." + fieldstringB
         else:
            fieldstringB = ""          
 
