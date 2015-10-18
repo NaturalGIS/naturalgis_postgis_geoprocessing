@@ -12,7 +12,7 @@ email=giovanni.manghi@naturalgis.pt
 homepage=http://www.naturalgis.pt/
 tracker=https://github.com/NaturalGIS/postgis_geoprocessing/issues
 repository=https://github.com/NaturalGIS/postgis_geoprocessing
-experimental=True
+experimental=False
 deprecated=False
 changelog=0.7
     - Better queries aliasing for attributes to be kept
