@@ -43,10 +43,11 @@ from processing.core.outputs import OutputHTML
 from processing.tools.system import *
 from processing.tools import dataobjects
 
-from processing.algs.gdal.OgrAlgorithm import OgrAlgorithm
+from processing.core.GeoAlgorithm import GeoAlgorithm
 from processing.algs.gdal.GdalUtils import GdalUtils
+from processing.tools.vector import ogrConnectionString, ogrLayerName
 
-class makevalid(OgrAlgorithm):
+class makevalid(GeoAlgorithm):
 
     INPUT_LAYER = 'INPUT_LAYER'
     FIELDS = 'FIELDS'    
@@ -76,8 +77,8 @@ class makevalid(OgrAlgorithm):
         
     def processAlgorithm(self, progress):
         inLayer = self.getParameterValue(self.INPUT_LAYER)
-        ogrLayer = self.ogrConnectionString(inLayer)[1:-1]
-        layername = self.ogrLayerName(inLayer)
+        ogrLayer = ogrConnectionString(inLayer)[1:-1]
+        layername = ogrLayerName(inLayer)
         fields = unicode(self.getParameterValue(self.FIELDS))
         dsUri = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER))
         geomColumn = dsUri.geometryColumn()

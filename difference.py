@@ -43,10 +43,11 @@ from processing.core.outputs import OutputHTML
 from processing.tools.system import *
 from processing.tools import dataobjects
 
-from processing.algs.gdal.OgrAlgorithm import OgrAlgorithm
+from processing.core.GeoAlgorithm import GeoAlgorithm
 from processing.algs.gdal.GdalUtils import GdalUtils
+from processing.tools.vector import ogrConnectionString, ogrLayerName
 
-class difference(OgrAlgorithm):
+class difference(GeoAlgorithm):
 
     INPUT_LAYER_A = 'INPUT_LAYER_A'
     INPUT_LAYER_B = 'INPUT_LAYER_B'
@@ -82,11 +83,11 @@ class difference(OgrAlgorithm):
         
     def processAlgorithm(self, progress):
         inLayerA = self.getParameterValue(self.INPUT_LAYER_A)
-        ogrLayerA = self.ogrConnectionString(inLayerA)[1:-1]
-        layernameA = self.ogrLayerName(inLayerA)
+        ogrLayerA = ogrConnectionString(inLayerA)[1:-1]
+        layernameA = ogrLayerName(inLayerA)
         inLayerB = self.getParameterValue(self.INPUT_LAYER_B)
-        ogrLayerB = self.ogrConnectionString(inLayerB)[1:-1]
-        layernameB = self.ogrLayerName(inLayerB)
+        ogrLayerB = ogrConnectionString(inLayerB)[1:-1]
+        layernameB = ogrLayerName(inLayerB)
         fieldsA = unicode(self.getParameterValue(self.FIELDS_A))
         dsUriA = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_A))
         geomColumnA = dsUriA.geometryColumn()

@@ -42,11 +42,13 @@ from processing.core.outputs import OutputHTML
 
 from processing.tools.system import *
 from processing.tools import dataobjects
+from processing.tools import vector
 
-from processing.algs.gdal.OgrAlgorithm import OgrAlgorithm
+from processing.core.GeoAlgorithm import GeoAlgorithm
 from processing.algs.gdal.GdalUtils import GdalUtils
+from processing.tools.vector import ogrConnectionString, ogrLayerName
 
-class bufferlayers(OgrAlgorithm):
+class bufferlayers(GeoAlgorithm):
 
     OUTPUT_LAYER = 'OUTPUT_LAYER'
     INPUT_LAYER = 'INPUT_LAYER'
@@ -91,8 +93,8 @@ class bufferlayers(OgrAlgorithm):
         
     def processAlgorithm(self, progress):
         inLayer = self.getParameterValue(self.INPUT_LAYER)
-        ogrLayer = self.ogrConnectionString(inLayer)[1:-1]
-        layername = self.ogrLayerName(inLayer)
+        ogrLayer = ogrConnectionString(inLayer)[1:-1]
+        layername = ogrLayerName(inLayer)
         dsUri = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER))
         geomColumn = dsUri.geometryColumn()
         layer = dataobjects.getObjectFromUri(self.getParameterValue(self.INPUT_LAYER))

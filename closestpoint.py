@@ -43,10 +43,11 @@ from processing.core.outputs import OutputHTML
 from processing.tools.system import *
 from processing.tools import dataobjects
 
-from processing.algs.gdal.OgrAlgorithm import OgrAlgorithm
+from processing.core.GeoAlgorithm import GeoAlgorithm
 from processing.algs.gdal.GdalUtils import GdalUtils
+from processing.tools.vector import ogrConnectionString, ogrLayerName
 
-class closestpoint(OgrAlgorithm):
+class closestpoint(GeoAlgorithm):
 
     OUTPUT_LAYER = 'OUTPUT_LAYER'
     INPUT_LAYER_A = 'INPUT_LAYER_A'
@@ -89,11 +90,11 @@ class closestpoint(OgrAlgorithm):
         
     def processAlgorithm(self, progress):
         inLayerA = self.getParameterValue(self.INPUT_LAYER_A)
-        ogrLayerA = self.ogrConnectionString(inLayerA)[1:-1]
-        layernameA = self.ogrLayerName(inLayerA)
+        ogrLayerA = ogrConnectionString(inLayerA)[1:-1]
+        layernameA = ogrLayerName(inLayerA)
         inLayerB = self.getParameterValue(self.INPUT_LAYER_B)
-        ogrLayerB = self.ogrConnectionString(inLayerB)[1:-1]
-        layernameB = self.ogrLayerName(inLayerB)
+        ogrLayerB = ogrConnectionString(inLayerB)[1:-1]
+        layernameB = ogrLayerName(inLayerB)
         fieldA = unicode(self.getParameterValue(self.FIELD_A))
         fieldB = unicode(self.getParameterValue(self.FIELD_B))
         dsUriA = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_A))

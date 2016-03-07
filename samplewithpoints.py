@@ -43,10 +43,11 @@ from processing.core.outputs import OutputHTML
 from processing.tools.system import *
 from processing.tools import dataobjects
 
-from processing.algs.gdal.OgrAlgorithm import OgrAlgorithm
+from processing.core.GeoAlgorithm import GeoAlgorithm
 from processing.algs.gdal.GdalUtils import GdalUtils
+from processing.tools.vector import ogrConnectionString, ogrLayerName
 
-class samplewithpoints(OgrAlgorithm):
+class samplewithpoints(GeoAlgorithm):
 
     INPUT_LAYER_A = 'INPUT_LAYER_A'
     INPUT_LAYER_B = 'INPUT_LAYER_B'
@@ -88,13 +89,13 @@ class samplewithpoints(OgrAlgorithm):
         
     def processAlgorithm(self, progress):
         inLayerA = self.getParameterValue(self.INPUT_LAYER_A)
-        ogrLayerA = self.ogrConnectionString(inLayerA)[1:-1]
-        layernameA = self.ogrLayerName(inLayerA)
+        ogrLayerA = ogrConnectionString(inLayerA)[1:-1]
+        layernameA = ogrLayerName(inLayerA)
         fieldsA = unicode(self.getParameterValue(self.FIELDS_A))
         fieldA = unicode(self.getParameterValue(self.FIELD_A))
         inLayerB = self.getParameterValue(self.INPUT_LAYER_B)
-        ogrLayerB = self.ogrConnectionString(inLayerB)[1:-1]
-        layernameB = self.ogrLayerName(inLayerB)
+        ogrLayerB = ogrConnectionString(inLayerB)[1:-1]
+        layernameB = ogrLayerName(inLayerB)
         fieldB = unicode(self.getParameterValue(self.FIELD_B))
         dsUriA = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_A))
         geomColumnA = dsUriA.geometryColumn()
