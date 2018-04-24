@@ -40,7 +40,7 @@ from postgis_geoprocessing.difference import difference
 from postgis_geoprocessing.dissolve import dissolve
 from postgis_geoprocessing.extractinvalid import extractinvalid
 from postgis_geoprocessing.bufferlayers import bufferlayers
-#from postgis_geoprocessing.makevalidbufferzero import makevalidbufferzero
+from postgis_geoprocessing.makevalidbufferzero import makevalidbufferzero
 #from postgis_geoprocessing.bufferlayersvariable import bufferlayersvariable
 #from postgis_geoprocessing.closestpoint import closestpoint
 #from postgis_geoprocessing.distancematrix import distancematrix
@@ -99,7 +99,7 @@ class OgrGeoprocessingProvider(QgsProcessingProvider):
                 dissolve(),
                 extractinvalid(),
                 bufferlayers(),
-                #makevalidbufferzero(),
+                makevalidbufferzero(),
                 #bufferlayersvariable(),
                 #closestpoint(),
                 #distancematrix(),
