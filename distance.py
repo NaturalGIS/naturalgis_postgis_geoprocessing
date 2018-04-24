@@ -27,94 +27,110 @@ __revision__ = '$Format:%H$'
 
 import os
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import *
+from qgis.core import (QgsProcessing,
+                       QgsProcessingAlgorithm,
+                       QgsProcessingParameterField,
+                       QgsProcessingParameterString,
+                       QgsProcessingParameterBoolean,
+                       QgsProcessingParameterVectorLayer,
+                       QgsDataSourceUri
+                      )
+from processing.algs.gdal import GdalUtils
 
-from processing.core.parameters import ParameterVector
-from processing.core.parameters import ParameterString
-from processing.core.parameters import ParameterNumber
-from processing.core.parameters import ParameterBoolean
-from processing.core.parameters import ParameterTableField
-from processing.core.outputs import OutputVector
-from processing.core.outputs import OutputHTML
+pluginPath = os.path.dirname(__file__)
 
-from processing.tools.system import *
-from processing.tools import dataobjects
 
-from processing.core.GeoAlgorithm import GeoAlgorithm
-from processing.algs.gdal.GdalUtils import GdalUtils
-from processing.tools.vector import ogrConnectionString, ogrLayerName
-
-class distance(GeoAlgorithm):
+class distance(QgsProcessingAlgorithm):
 
     OUTPUT_LAYER = 'OUTPUT_LAYER'
     INPUT_LAYER_A = 'INPUT_LAYER_A'
     INPUT_LAYER_B = 'INPUT_LAYER_B'
     FIELD_A = 'FIELD_A'
     FIELD_B = 'FIELD_B'
-    MULTI = 'MULTI' 
+    MULTI = 'MULTI'
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
     OPTIONS = 'OPTIONS'
-    OUTPUT = 'OUTPUT'
-    
-    def getIcon(self):
-        return  QIcon(os.path.dirname(__file__) + '/icons/postgis.png')
 
-    def defineCharacteristics(self):
-        self.name = 'Minimum distance'
-        self.group = 'Vector geoprocessing'
+    def __init__(self):
+        super().__init__()
 
-        self.addParameter(ParameterVector(self.INPUT_LAYER_A, '"FROM" layer',
-                          [ParameterVector.VECTOR_TYPE_ANY], False))
-        self.addParameter(ParameterTableField(self.FIELD_A, '"FROM" layer ID',
-                          self.INPUT_LAYER_A, optional=False))
-        self.addParameter(ParameterVector(self.INPUT_LAYER_B, '"TO" layer',
-                          [ParameterVector.VECTOR_TYPE_ANY], False))
-        self.addParameter(ParameterTableField(self.FIELD_B, '"TO" layer layer ID',
-                          self.INPUT_LAYER_B, optional=False))
-        self.addParameter(ParameterBoolean(self.MULTI,
-                          'Consider "TO" layer as one unique feature', True))
-        self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
-                          'public', optional=False))
-        self.addParameter(ParameterString(self.TABLE, 'Output table name',
-                          'distance_analysis', optional=False))
-        self.addParameter(ParameterString(self.OPTIONS, 'Additional creation options (see ogr2ogr manual)',
-                          '', optional=True))
-        self.addOutput(OutputHTML(self.OUTPUT, 'Output log'))
-        
-    def processAlgorithm(self, progress):
-        inLayerA = self.getParameterValue(self.INPUT_LAYER_A)
-        ogrLayerA = ogrConnectionString(inLayerA)[1:-1]
-        layernameA = ogrLayerName(inLayerA)
-        inLayerB = self.getParameterValue(self.INPUT_LAYER_B)
-        ogrLayerB = ogrConnectionString(inLayerB)[1:-1]
-        layernameB = ogrLayerName(inLayerB)
-        fieldA = unicode(self.getParameterValue(self.FIELD_A))
-        fieldB = unicode(self.getParameterValue(self.FIELD_B))
-        dsUriA = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_A))
-        geomColumnA = dsUriA.geometryColumn()
-        dsUriB = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_B))
-        geomColumnB = dsUriB.geometryColumn()
-        layerA = dataobjects.getObjectFromUri(self.getParameterValue(self.INPUT_LAYER_A))
-        geomTypeA = layerA.geometryType()
-        wkbTypeA = layerA.wkbType()
-        sridA = layerA.crs().postgisSrid()
-        layerB = dataobjects.getObjectFromUri(self.getParameterValue(self.INPUT_LAYER_B))
-        geomTypeB = layerB.geometryType()
-        wkbTypeB = layerB.wkbType()
-        sridB = layerB.crs().postgisSrid()
-        multi = self.getParameterValue(self.MULTI)
-        schema = unicode(self.getParameterValue(self.SCHEMA))
-        table = unicode(self.getParameterValue(self.TABLE))
+    def createInstance(self):
+        return type(self)()
+
+    def icon(self):
+        return QIcon(os.path.join(pluginPath, 'icons', 'postgis.png'))
+
+    def name(self):
+        return 'minimumdistance'
+
+    def displayName(self):
+        return 'Minimum distance'
+
+    def group(self):
+        return 'Vector geoprocessing'
+
+    def groupId(self):
+        return 'vectorgeoprocessing'
+
+    def initAlgorithm(self, config=None):
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER_A,
+                                                            '"FROM" layer',
+                                                            [QgsProcessing.TypeVectorAnyGeometry]))
+        self.addParameter(QgsProcessingParameterField(self.FIELD_A,
+                                                      '"FROM" layer ID',
+                                                      None,
+                                                      self.INPUT_LAYER_A))
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER_B,
+                                                            '"TO" layer',
+                                                            [QgsProcessing.TypeVectorAnyGeometry]))
+        self.addParameter(QgsProcessingParameterField(self.FIELD_B,
+                                                      '"TO" layer layer ID',
+                                                      None,
+                                                      self.INPUT_LAYER_B))
+        self.addParameter(QgsProcessingParameterBoolean(self.MULTI,
+                                                        'Consider "TO" layer as one unique feature',
+                                                        True))
+        self.addParameter(QgsProcessingParameterString(self.SCHEMA,
+                                                       'Output schema',
+                                                       'public'))
+        self.addParameter(QgsProcessingParameterString(self.TABLE,
+                                                       'Output table name',
+                                                       'distance_analysis'))
+        self.addParameter(QgsProcessingParameterString(self.OPTIONS,
+                                                       'Additional creation options (see ogr2ogr manual)',
+                                                       '',
+                                                       optional=True))
+
+    def processAlgorithm(self, parameters, context, feedback):
+        inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
+        ogrLayerA = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+
+        inLayerB = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_B, context)
+        ogrLayerB = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        layernameB = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+
+        fieldA = self.parameterAsString(parameters, self.FIELD_A, context)
+        fieldB = self.parameterAsString(parameters, self.FIELD_B, context)
+
+        uri = QgsDataSourceUri(inLayerA.source())
+        geomColumnA = uri.geometryColumn()
+        uri = QgsDataSourceUri(inLayerB.source())
+        geomColumnB = uri.geometryColumn()
+
+        multi = self.parameterAsBool(parameters, self.MULTI, context)
+
+        schema = self.parameterAsString(parameters, self.SCHEMA, context)
+        table = self.parameterAsString(parameters, self.TABLE, context)
+        options = self.parameterAsString(parameters, self.OPTIONS, context)
+
         if multi:
            sqlstring = "-sql \"WITH temp_table AS (SELECT ST_Union(" + geomColumnB + ") AS geom FROM " + layernameB + ") SELECT ST_ShortestLine(g1." + geomColumnA + ",g2.geom) AS geom, ST_Distance(g1." + geomColumnA + ",g2.geom) AS distance, g1." + fieldA + " AS id_from FROM " + layernameA + " AS g1, temp_table AS g2\" -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom -nlt LINESTRING --config PG_USE_COPY YES -a_srs EPSG:" + str(sridA) + ""
         else:
            sqlstring = "-sql \"SELECT ST_ShortestLine(g1." + geomColumnA + ",g2." + geomColumnB + ") AS geom, ST_Distance(g1." + geomColumnA + ",g2." + geomColumnB + ") AS distance, g1." + fieldA + " AS id_from, g2." + fieldB + " AS id_to FROM " + layernameA + " AS g1, " + layernameB + " AS g2\" -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom -nlt LINESTRING --config PG_USE_COPY YES"
-
-        options = unicode(self.getParameterValue(self.OPTIONS))
 
         arguments = []
         arguments.append('-f')
@@ -123,23 +139,11 @@ class distance(GeoAlgorithm):
         arguments.append(ogrLayerA)
         arguments.append(sqlstring)
         arguments.append('-overwrite')
-                
+
         if len(options) > 0:
             arguments.append(options)
-        #print table   
-        commands = []
-        if isWindows():
-            commands = ['cmd.exe', '/C ', 'ogr2ogr.exe',
-                        GdalUtils.escapeAndJoin(arguments)]
-        else:
-            commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
 
-        GdalUtils.runGdal(commands, progress)
+        commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
+        GdalUtils.runGdal(commands, feedback)
 
-        output = self.getOutputValue(self.OUTPUT)
-        f = open(output, 'w')
-        f.write('<pre>')
-        for s in GdalUtils.getConsoleOutput()[1:]:
-            f.write(unicode(s))
-        f.write('</pre>')
-        f.close()        
+        return {}

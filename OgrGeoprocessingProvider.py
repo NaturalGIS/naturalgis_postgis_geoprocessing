@@ -33,7 +33,7 @@ from qgis.core import QgsProcessingProvider
 
 from processing.core.ProcessingConfig import ProcessingConfig, Setting
 
-#from postgis_geoprocessing.distance import distance
+from postgis_geoprocessing.distance import distance
 #from postgis_geoprocessing.clipbypolygon import clipbypolygon
 #from postgis_geoprocessing.makevalid import makevalid
 #from postgis_geoprocessing.difference import difference
@@ -92,7 +92,7 @@ class OgrGeoprocessingProvider(QgsProcessingProvider):
         return True
 
     def getAlgs(self):
-        algs = [#distance(),
+        algs = [distance(),
                 #clipbypolygon(),
                 #makevalid(),
                 #difference(),
