@@ -37,7 +37,7 @@ from postgis_geoprocessing.distance import distance
 from postgis_geoprocessing.clipbypolygon import clipbypolygon
 from postgis_geoprocessing.makevalid import makevalid
 from postgis_geoprocessing.difference import difference
-#from postgis_geoprocessing.dissolve import dissolve
+from postgis_geoprocessing.dissolve import dissolve
 #from postgis_geoprocessing.extractinvalid import extractinvalid
 #from postgis_geoprocessing.bufferlayers import bufferlayers
 #from postgis_geoprocessing.makevalidbufferzero import makevalidbufferzero
@@ -96,7 +96,7 @@ class OgrGeoprocessingProvider(QgsProcessingProvider):
                 clipbypolygon(),
                 makevalid(),
                 difference(),
-                #dissolve(),
+                dissolve(),
                 #extractinvalid(),
                 #bufferlayers(),
                 #makevalidbufferzero(),
