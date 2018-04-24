@@ -44,7 +44,7 @@ from postgis_geoprocessing.makevalidbufferzero import makevalidbufferzero
 from postgis_geoprocessing.bufferlayersvariable import bufferlayersvariable
 from postgis_geoprocessing.closestpoint import closestpoint
 from postgis_geoprocessing.distancematrix import distancematrix
-#from postgis_geoprocessing.selectbypolygon import selectbypolygon
+from postgis_geoprocessing.selectbypolygon import selectbypolygon
 #from postgis_geoprocessing.selectbypoint import selectbypoint
 #from postgis_geoprocessing.selectbyline import selectbyline
 #from postgis_geoprocessing.samplewithpoints import samplewithpoints
@@ -103,7 +103,7 @@ class OgrGeoprocessingProvider(QgsProcessingProvider):
                 bufferlayersvariable(),
                 closestpoint(),
                 distancematrix(),
-                #selectbypolygon(),
+                selectbypolygon(),
                 #selectbypoint(),
                 #selectbyline(),
                 #samplewithpoints()
