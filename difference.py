@@ -27,87 +27,109 @@ __revision__ = '$Format:%H$'
 
 import os
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import *
+from qgis.core import (QgsProcessing,
+                       QgsProcessingAlgorithm,
+                       QgsProcessingParameterField,
+                       QgsProcessingParameterString,
+                       QgsProcessingParameterBoolean,
+                       QgsProcessingParameterVectorLayer,
+                       QgsDataSourceUri
+                      )
+from processing.algs.gdal import GdalUtils
 
-from processing.core.parameters import ParameterVector
-from processing.core.parameters import ParameterString
-from processing.core.parameters import ParameterNumber
-from processing.core.parameters import ParameterBoolean
-from processing.core.parameters import ParameterTableField
-from processing.core.outputs import OutputVector
-from processing.core.outputs import OutputHTML
+pluginPath = os.path.dirname(__file__)
 
-from processing.tools.system import *
-from processing.tools import dataobjects
 
-from processing.core.GeoAlgorithm import GeoAlgorithm
-from processing.algs.gdal.GdalUtils import GdalUtils
-from processing.tools.vector import ogrConnectionString, ogrLayerName
-
-class difference(GeoAlgorithm):
+class difference(QgsProcessingAlgorithm):
 
     INPUT_LAYER_A = 'INPUT_LAYER_A'
     INPUT_LAYER_B = 'INPUT_LAYER_B'
     FIELDS_A = 'FIELDS_A'
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
-    SINGLE = 'SINGLE'    
+    SINGLE = 'SINGLE'
     OPTIONS = 'OPTIONS'
-    OUTPUT = 'OUTPUT'
-    
-    def getIcon(self):
-        return  QIcon(os.path.dirname(__file__) + '/icons/postgis.png')
 
-    def defineCharacteristics(self):
-        self.name = 'Polygon difference (non symmetrical)'
-        self.group = 'Vector geoprocessing'
+    def __init__(self):
+        super().__init__()
 
-        self.addParameter(ParameterVector(self.INPUT_LAYER_A, 'Input layer',
-                          [ParameterVector.VECTOR_TYPE_POLYGON], False))
-        self.addParameter(ParameterString(self.FIELDS_A, 'Attributes to keep (comma separated list). Aliasing permitted.',
-                          '', optional=False))
-        self.addParameter(ParameterVector(self.INPUT_LAYER_B, 'Layer to be subtracted',
-                          [ParameterVector.VECTOR_TYPE_POLYGON], False))
-        self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
-                          'public', optional=False))
-        self.addParameter(ParameterString(self.TABLE, 'Output table name',
-                          'difference', optional=False))
-        self.addParameter(ParameterBoolean(self.SINGLE,
-                          'Force output as singlepart', False))
-        self.addParameter(ParameterString(self.OPTIONS, 'Additional creation options (see ogr2ogr manual)',
-                          '', optional=True))
-        self.addOutput(OutputHTML(self.OUTPUT, 'Output log'))
-        
-    def processAlgorithm(self, progress):
-        inLayerA = self.getParameterValue(self.INPUT_LAYER_A)
-        ogrLayerA = ogrConnectionString(inLayerA)[1:-1]
-        layernameA = ogrLayerName(inLayerA)
-        inLayerB = self.getParameterValue(self.INPUT_LAYER_B)
-        ogrLayerB = ogrConnectionString(inLayerB)[1:-1]
-        layernameB = ogrLayerName(inLayerB)
-        fieldsA = unicode(self.getParameterValue(self.FIELDS_A))
-        dsUriA = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_A))
-        geomColumnA = dsUriA.geometryColumn()
-        dsUriB = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_B))
-        geomColumnB = dsUriB.geometryColumn()
-        schema = unicode(self.getParameterValue(self.SCHEMA))
-        table = unicode(self.getParameterValue(self.TABLE))
-        single = self.getParameterValue(self.SINGLE)
+    def createInstance(self):
+        return type(self)()
+
+    def icon(self):
+        return QIcon(os.path.join(pluginPath, 'icons', 'postgis.png'))
+
+    def name(self):
+        return 'polygondifferencenonsymmetrical'
+
+    def displayName(self):
+        return 'Polygon difference (non symmetrical)'
+
+    def group(self):
+        return 'Vector geoprocessing'
+
+    def groupId(self):
+        return 'vectorgeoprocessing'
+
+    def initAlgorithm(self, config=None):
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER_A,
+                                                            'Input layer',
+                                                            [QgsProcessing.TypeVectorPolygon]))
+        self.addParameter(QgsProcessingParameterField(self.FIELDS_A,
+                                                      'Attributes to keep',
+                                                      None,
+                                                      self.INPUT_LAYER_A,
+                                                      allowMultiple=True))
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER_B,
+                                                            'Layer to be subtracted',
+                                                            [QgsProcessing.TypeVectorPolygon]))
+        self.addParameter(QgsProcessingParameterString(self.SCHEMA,
+                                                       'Output schema',
+                                                       'public'))
+        self.addParameter(QgsProcessingParameterString(self.TABLE,
+                                                       'Output table name',
+                                                       'difference'))
+        self.addParameter(QgsProcessingParameterString(self.OPTIONS,
+                                                       'Additional creation options (see ogr2ogr manual)',
+                                                       '',
+                                                       optional=True))
+        self.addParameter(QgsProcessingParameterBoolean(self.SINGLE,
+                                                        'Force output as singlepart',
+                                                        False))
+
+    def processAlgorithm(self, parameters, context, feedback):
+        inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
+        ogrLayerA = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+
+        inLayerB = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_B, context)
+        ogrLayerB = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        layernameB = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+
+        fieldsA = self.parameterAsFields(parameters, self.FIELDS, context)
+
+        uri = QgsDataSourceUri(inLayerA.source())
+        geomColumnA = uri.geometryColumn()
+        uri = QgsDataSourceURI(inLayerB.source())
+        geomColumnB = uri.geometryColumn()
+
+        schema = self.parameterAsString(parameters, self.SCHEMA, context)
+        table = self.parameterAsString(parameters, self.TABLE, context)
+        options = self.parameterAsString(parameters, self.OPTIONS, context)
+        single = self.parameterAsBool(parameters, self.SINGLE, context)
+
         if len(fieldsA) > 0:
-           fieldstring = fieldsA.replace(",", ", g1.")
-           fieldstring = ", g1." + fieldstring               
+           fieldstring = ', '.join(["g1.{}".format(f) for f in fieldsA])
+           fieldstring = ", " + fieldstring
         else:
-           fieldstring = ""        
+           fieldstring = ""
 
         if single:
            sqlstring = "-sql \"SELECT (ST_Dump(ST_Difference(g1." + geomColumnA + ",ST_Union(g2." + geomColumnB + ")))).geom::geometry(Polygon) AS geom" + fieldstring + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 GROUP BY g1." + geomColumnA + fieldstring + "\""" -nln " + schema + "." + table + " -lco FID=gid -nlt POLYGON -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
         else:
            sqlstring = "-sql \"SELECT (ST_Multi(ST_CollectionExtract(ST_Difference(g1." + geomColumnA + ",ST_Union(g2." + geomColumnB + ")),3)))::geometry(MultiPolygon) AS geom" + fieldstring + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 GROUP BY g1." + geomColumnA + fieldstring + "\""" -nln " + schema + "." + table + " -lco FID=gid -nlt MULTIPOLYGON -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
-
-        options = unicode(self.getParameterValue(self.OPTIONS))
 
         arguments = []
         arguments.append('-f')
@@ -116,22 +138,11 @@ class difference(GeoAlgorithm):
         arguments.append(ogrLayerA)
         arguments.append(sqlstring)
         arguments.append('-overwrite')
-                
+
         if len(options) > 0:
             arguments.append(options)
-        commands = []
-        if isWindows():
-            commands = ['cmd.exe', '/C ', 'ogr2ogr.exe',
-                        GdalUtils.escapeAndJoin(arguments)]
-        else:
-            commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
 
-        GdalUtils.runGdal(commands, progress)
+        commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
+        GdalUtils.runGdal(commands, feedback)
 
-        output = self.getOutputValue(self.OUTPUT)
-        f = open(output, 'w')
-        f.write('<pre>')
-        for s in GdalUtils.getConsoleOutput()[1:]:
-            f.write(unicode(s))
-        f.write('</pre>')
-        f.close()          
+        return {}
