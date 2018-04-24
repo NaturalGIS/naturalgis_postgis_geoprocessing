@@ -47,7 +47,7 @@ from postgis_geoprocessing.distancematrix import distancematrix
 from postgis_geoprocessing.selectbypolygon import selectbypolygon
 from postgis_geoprocessing.selectbypoint import selectbypoint
 from postgis_geoprocessing.selectbyline import selectbyline
-#from postgis_geoprocessing.samplewithpoints import samplewithpoints
+from postgis_geoprocessing.samplewithpoints import samplewithpoints
 
 OGR_GEOPROCESSING_ACTIVE = 'OGR_GEOPROCESSING_ACTIVE'
 
@@ -106,7 +106,7 @@ class OgrGeoprocessingProvider(QgsProcessingProvider):
                 selectbypolygon(),
                 selectbypoint(),
                 selectbyline(),
-                #samplewithpoints()
+                samplewithpoints()
                ]
 
         return algs

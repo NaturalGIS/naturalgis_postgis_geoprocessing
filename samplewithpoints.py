@@ -27,27 +27,23 @@ __revision__ = '$Format:%H$'
 
 import os
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import *
+from qgis.core import (QgsProcessing,
+                       QgsProcessingAlgorithm,
+                       QgsProcessingParameterField,
+                       QgsProcessingParameterString,
+                       QgsProcessingParameterBoolean,
+                       QgsProcessingParameterVectorLayer,
+                       QgsDataSourceUri,
+                       QgsWkbTypes
+                      )
+from processing.algs.gdal import GdalUtils
 
-from processing.core.parameters import ParameterVector
-from processing.core.parameters import ParameterString
-from processing.core.parameters import ParameterNumber
-from processing.core.parameters import ParameterBoolean
-from processing.core.parameters import ParameterTableField
-from processing.core.outputs import OutputVector
-from processing.core.outputs import OutputHTML
+pluginPath = os.path.dirname(__file__)
 
-from processing.tools.system import *
-from processing.tools import dataobjects
 
-from processing.core.GeoAlgorithm import GeoAlgorithm
-from processing.algs.gdal.GdalUtils import GdalUtils
-from processing.tools.vector import ogrConnectionString, ogrLayerName
-
-class samplewithpoints(GeoAlgorithm):
+class samplewithpoints(QgsProcessingAlgorithm):
 
     INPUT_LAYER_A = 'INPUT_LAYER_A'
     INPUT_LAYER_B = 'INPUT_LAYER_B'
@@ -56,67 +52,95 @@ class samplewithpoints(GeoAlgorithm):
     FIELD_B = 'FIELD_B'
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
-    SINGLE = 'SINGLE' 
+    SINGLE = 'SINGLE'
     OPTIONS = 'OPTIONS'
-    OUTPUT = 'OUTPUT'
-    
-    def getIcon(self):
-        return  QIcon(os.path.dirname(__file__) + '/icons/postgis.png')
 
-    def defineCharacteristics(self):
-        self.name = 'Sample polygons using points'
-        self.group = 'Vector geoprocessing'
+    def __init__(self):
+        super().__init__()
 
-        self.addParameter(ParameterVector(self.INPUT_LAYER_A, 'Point layer used for the sampling',
-                          [ParameterVector.VECTOR_TYPE_POINT], False))
-        self.addParameter(ParameterString(self.FIELDS_A, 'Attributes to keep (comma separated list). Aliasing permitted.',
-                          '', optional=False))
-        self.addParameter(ParameterString(self.FIELD_A, 'Attribute name for sampled values.',
-                          'sampled_field', optional=False))
-        self.addParameter(ParameterVector(self.INPUT_LAYER_B, 'Select values from',
-                          [ParameterVector.VECTOR_TYPE_POLYGON], False))
-        self.addParameter(ParameterTableField(self.FIELD_B,
-            self.tr('Attribute to be sampled.'), self.INPUT_LAYER_B))
-        self.addParameter(ParameterBoolean(self.SINGLE,
-                          'Force output as singlepart', True))
-        self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
-                          'public', optional=False))
-        self.addParameter(ParameterString(self.TABLE, 'Output table name',
-                          'sampled', optional=False))
-        self.addParameter(ParameterString(self.OPTIONS, 'Additional creation options (see ogr2ogr manual)',
-                          '', optional=True))
-        self.addOutput(OutputHTML(self.OUTPUT, 'Output log'))
-        
-    def processAlgorithm(self, progress):
-        inLayerA = self.getParameterValue(self.INPUT_LAYER_A)
-        ogrLayerA = ogrConnectionString(inLayerA)[1:-1]
-        layernameA = ogrLayerName(inLayerA)
-        fieldsA = unicode(self.getParameterValue(self.FIELDS_A))
-        fieldA = unicode(self.getParameterValue(self.FIELD_A))
-        inLayerB = self.getParameterValue(self.INPUT_LAYER_B)
-        ogrLayerB = ogrConnectionString(inLayerB)[1:-1]
-        layernameB = ogrLayerName(inLayerB)
-        fieldB = unicode(self.getParameterValue(self.FIELD_B))
-        dsUriA = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_A))
-        geomColumnA = dsUriA.geometryColumn()
-        dsUriB = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_B))
-        geomColumnB = dsUriB.geometryColumn()
-        layerB = dataobjects.getObjectFromUri(self.getParameterValue(self.INPUT_LAYER_B))
-        layerA = dataobjects.getObjectFromUri(self.getParameterValue(self.INPUT_LAYER_A))
-        geomTypeB = layerB.geometryType()
-        wkbTypeB = layerB.wkbType()
-        sridB = layerB.crs().postgisSrid()
+    def createInstance(self):
+        return type(self)()
+
+    def icon(self):
+        return QIcon(os.path.join(pluginPath, 'icons', 'postgis.png'))
+
+    def name(self):
+        return 'samplepolygonsusingpoints'
+
+    def displayName(self):
+        return 'Sample polygons using points'
+
+    def group(self):
+        return 'Vector geoprocessing'
+
+    def groupId(self):
+        return 'vectorgeoprocessing'
+
+    def initAlgorithm(self, config=None):
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER_A,
+                                                            'Point layer used for the sampling',
+                                                            [QgsProcessing.TypeVectorPoint]))
+        self.addParameter(QgsProcessingParameterField(self.FIELDS_A,
+                                                      'Attributes to keep',
+                                                      None,
+                                                      self.INPUT_LAYER_A,
+                                                      allowMultiple=True))
+        self.addParameter(QgsProcessingParameterString(self.FIELD_A,
+                                                      'Attribute name for sampled values.',
+                                                      'sampled_field'))
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER_B,
+                                                            'Select values from',
+                                                            [QgsProcessing.TypeVectorPoint]))
+        self.addParameter(QgsProcessingParameterField(self.FIELD_B,
+                                                      'Attribute to be sampled',
+                                                      None,
+                                                      self.INPUT_LAYER_B))
+        self.addParameter(QgsProcessingParameterBoolean(self.SINGLE,
+                                                        'Force output as singlepart',
+                                                        True))
+        self.addParameter(QgsProcessingParameterString(self.SCHEMA,
+                                                       'Output schema',
+                                                       'public'))
+        self.addParameter(QgsProcessingParameterString(self.TABLE,
+                                                       'Output table name',
+                                                       'sampled'))
+        self.addParameter(QgsProcessingParameterString(self.OPTIONS,
+                                                       'Additional creation options (see ogr2ogr manual)',
+                                                       '',
+                                                       optional=True))
+
+    def processAlgorithm(self, parameters, context, feedback):
+        inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
+        ogrLayerA = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+
+        inLayerB = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_B, context)
+        ogrLayerB = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        layernameB = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+
+        fieldsA = self.parameterAsFields(parameters, self.FIELDS_A, context)
+        fieldA = self.parameterAsString(parameters, self.FIELD_A, context)
+        fieldB = self.parameterAsString(parameters, self.FIELD_B, context)
+
+        uri = QgsDataSourceUri(inLayerA.source())
+        geomColumnA = uri.geometryColumn()
+        uri = QgsDataSourceURI(inLayerB.source())
+        geomColumnB = uri.geometryColumn()
+
         sridA = layerA.crs().postgisSrid()
-        schema = unicode(self.getParameterValue(self.SCHEMA))
-        table = unicode(self.getParameterValue(self.TABLE))
-        single = self.getParameterValue(self.SINGLE)
+
+        schema = self.parameterAsString(parameters, self.SCHEMA, context)
+        table = self.parameterAsString(parameters, self.TABLE, context)
+        options = self.parameterAsString(parameters, self.OPTIONS, context)
+
+        single = self.parameterAsBool(parameters, self.SINGLE, context)
 
         if len(fieldsA) > 0:
-           fieldstringA = fieldsA.replace(",", ", g1.")
-           fieldstringA = ", g1." + fieldstringA
+           fieldstringA = ', '.join(["g1.{}".format(f) for f in fieldsB])
+           fieldstringA = ", " + fieldstringA
         else:
            fieldstringA = ""
-        
+
         type = "POINT"
 
         if single:
@@ -128,12 +152,9 @@ class samplewithpoints(GeoAlgorithm):
            multistring = "-nlt MULTI" + type
            caststring = "MULTI" + type
            st_function = "ST_Multi"
-           castgeom = ""           
+           castgeom = ""
 
         sqlstring = "-sql \"SELECT (" + st_function + "(g1." + geomColumnA + "))" + castgeom + "::geometry(" + caststring + "," + str(sridA) + ") AS geom, g2." + fieldB + " AS " + fieldA + fieldstringA + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2  WHERE ST_Intersects(g2." + geomColumnB + ",g1." + geomColumnA + ") is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
-
-        options = unicode(self.getParameterValue(self.OPTIONS))
-
         arguments = []
         arguments.append('-f')
         arguments.append('PostgreSQL')
@@ -141,23 +162,11 @@ class samplewithpoints(GeoAlgorithm):
         arguments.append(ogrLayerA)
         arguments.append(sqlstring)
         arguments.append('-overwrite')
-                
+
         if len(options) > 0:
             arguments.append(options)
-        print geomTypeB
-        commands = []
-        if isWindows():
-            commands = ['cmd.exe', '/C ', 'ogr2ogr.exe',
-                        GdalUtils.escapeAndJoin(arguments)]
-        else:
-            commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
 
-        GdalUtils.runGdal(commands, progress)
+        commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
+        GdalUtils.runGdal(commands, feedback)
 
-        output = self.getOutputValue(self.OUTPUT)
-        f = open(output, 'w')
-        f.write('<pre>')
-        for s in GdalUtils.getConsoleOutput()[1:]:
-            f.write(unicode(s))
-        f.write('</pre>')
-        f.close()          
+        return {}
