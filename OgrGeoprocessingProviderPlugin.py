@@ -25,19 +25,9 @@ __copyright__ = '(C) 2015, Giovanni Manghi'
 
 __revision__ = '$Format:%H$'
 
-import os
-import sys
-import inspect
+from qgis.core import QgsApplication
 
-from qgis.core import *
-
-from processing.core.Processing import Processing
 from postgis_geoprocessing.OgrGeoprocessingProvider import OgrGeoprocessingProvider
-
-cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
-
-if cmd_folder not in sys.path:
-    sys.path.insert(0, cmd_folder)
 
 
 class OgrGeoprocessingProviderPlugin:
@@ -46,7 +36,7 @@ class OgrGeoprocessingProviderPlugin:
         self.provider = OgrGeoprocessingProvider()
 
     def initGui(self):
-        Processing.addProvider(self.provider, updateList=True)
+        QgsApplication.processingRegistry().addProvider(self.provider)
 
     def unload(self):
-        Processing.removeProvider(self.provider)
+        QgsApplication.processingRegistry().removeProvider(self.provider)
