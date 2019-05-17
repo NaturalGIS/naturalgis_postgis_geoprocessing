@@ -27,80 +27,97 @@ __revision__ = '$Format:%H$'
 
 import os
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import *
+from qgis.core import (QgsProcessing,
+                       QgsProcessingAlgorithm,
+                       QgsProcessingParameterField,
+                       QgsProcessingParameterString,
+                       QgsProcessingParameterVectorLayer,
+                       QgsDataSourceUri,
+                       QgsWkbTypes
+                      )
+from processing.algs.gdal import GdalUtils
 
-from processing.core.parameters import ParameterVector
-from processing.core.parameters import ParameterString
-from processing.core.parameters import ParameterNumber
-from processing.core.parameters import ParameterBoolean
-from processing.core.parameters import ParameterTableField
-from processing.core.outputs import OutputVector
-from processing.core.outputs import OutputHTML
+pluginPath = os.path.dirname(__file__)
 
-from processing.tools.system import *
-from processing.tools import dataobjects
 
-from processing.core.GeoAlgorithm import GeoAlgorithm
-from processing.algs.gdal.GdalUtils import GdalUtils
-from processing.tools.vector import ogrConnectionString, ogrLayerName
-
-class extractinvalid(GeoAlgorithm):
+class extractinvalid(QgsProcessingAlgorithm):
 
     INPUT_LAYER = 'INPUT_LAYER'
-    FIELDS = 'FIELDS'    
+    FIELDS = 'FIELDS'
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
     OPTIONS = 'OPTIONS'
-    OUTPUT = 'OUTPUT'
-    
-    def getIcon(self):
-        return  QIcon(os.path.dirname(__file__) + '/icons/postgis.png')
 
-    def defineCharacteristics(self):
-        self.name = 'Extract invalid polygons (ST_IsValid)'
-        self.group = 'Vector geoprocessing'
+    def __init__(self):
+        super().__init__()
 
-        self.addParameter(ParameterVector(self.INPUT_LAYER, 'Input layer',
-                          [ParameterVector.VECTOR_TYPE_POLYGON], False))
-        self.addParameter(ParameterString(self.FIELDS, 'Attributes to keep (comma separated list). Aliasing permitted.',
-                          '', optional=False))
-        self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
-                          'public', optional=False))
-        self.addParameter(ParameterString(self.TABLE, 'Output table name',
-                          'invalid_polygons', optional=False))
-        self.addParameter(ParameterString(self.OPTIONS, 'Additional creation options (see ogr2ogr manual)',
-                          '', optional=True))
-        self.addOutput(OutputHTML(self.OUTPUT, 'Output log'))
-        
-    def processAlgorithm(self, progress):
-        inLayer = self.getParameterValue(self.INPUT_LAYER)
-        ogrLayer = ogrConnectionString(inLayer)[1:-1]
-        layername = ogrLayerName(inLayer)
-        fields = unicode(self.getParameterValue(self.FIELDS))
-        dsUri = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER))
-        geomColumn = dsUri.geometryColumn()
-        layer = dataobjects.getObjectFromUri(self.getParameterValue(self.INPUT_LAYER))
-        geomType = layer.geometryType()
+    def createInstance(self):
+        return type(self)()
+
+    def icon(self):
+        return QIcon(os.path.join(pluginPath, 'icons', 'postgis.png'))
+
+    def name(self):
+        return 'extractinvalidpolygonsstisvalid'
+
+    def displayName(self):
+        return 'Extract invalid polygons (ST_IsValid)'
+
+    def group(self):
+        return 'Vector geoprocessing'
+
+    def groupId(self):
+        return 'vectorgeoprocessing'
+
+    def initAlgorithm(self, config=None):
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER,
+                                                            'Input layer',
+                                                            [QgsProcessing.TypeVectorPolygon]))
+        self.addParameter(QgsProcessingParameterField(self.FIELDS,
+                                                      'Attributes to keep',
+                                                      None,
+                                                      self.INPUT_LAYER,
+                                                      allowMultiple=True))
+        self.addParameter(QgsProcessingParameterString(self.SCHEMA,
+                                                       'Output schema',
+                                                       'public'))
+        self.addParameter(QgsProcessingParameterString(self.TABLE,
+                                                       'Output table name',
+                                                       'invalid_polygons'))
+        self.addParameter(QgsProcessingParameterString(self.OPTIONS,
+                                                       'Additional creation options (see ogr2ogr manual)',
+                                                       '',
+                                                       optional=True))
+
+    def processAlgorithm(self, parameters, context, feedback):
+        inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
+        ogrLayerA = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+
+        fields = self.parameterAsFields(parameters, self.FIELDS, context)
+
+        uri = QgsDataSourceUri(inLayer.source())
+        geomColumn = uri.geometryColumn()
         wkbType = layer.wkbType()
         srid = layer.crs().postgisSrid()
-        schema = unicode(self.getParameterValue(self.SCHEMA))
-        table = unicode(self.getParameterValue(self.TABLE))
+
+        schema = self.parameterAsString(parameters, self.SCHEMA, context)
+        table = self.parameterAsString(parameters, self.TABLE, context)
+        options = self.parameterAsString(parameters, self.OPTIONS, context)
+
         if len(fields) > 0:
-           fieldstring = "," + fields
+           fieldstring = "," + ",".join(fields)
         else:
            fieldstring = ""
 
-        if wkbType == 3:
-           layertype = "POLYGON"              
+        if wkbType == QgsWkbTypes.Polygon:
+           layertype = "POLYGON"
            sqlstring = "-sql \"SELECT (ST_Dump(g1." + geomColumn + ")).geom::geometry(" + layertype + "," + str(srid) + ") AS geom, ST_IsValidReason(" + geomColumn + ") AS invalid_reason" + fieldstring + " FROM " + layername + " AS g1 WHERE NOT ST_IsValid(" + geomColumn + ")\" -nlt " + layertype + " -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
         else:
-            layertype = "MULTIPOLYGON"            
+            layertype = "MULTIPOLYGON"
             sqlstring = "-sql \"SELECT (g1." + geomColumn + ")::geometry(" + layertype + "," + str(srid) + ") AS geom, ST_IsValidReason(" + geomColumn + ") AS invalid_reason" + fieldstring + " FROM " + layername + " AS g1 WHERE NOT ST_IsValid(" + geomColumn + ")\" -nlt " + layertype + " -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
-
-        options = unicode(self.getParameterValue(self.OPTIONS))
 
         arguments = []
         arguments.append('-f')
@@ -109,22 +126,11 @@ class extractinvalid(GeoAlgorithm):
         arguments.append(ogrLayer)
         arguments.append(sqlstring)
         arguments.append('-overwrite')
-                
+
         if len(options) > 0:
             arguments.append(options)
-        commands = []
-        if isWindows():
-            commands = ['cmd.exe', '/C ', 'ogr2ogr.exe',
-                        GdalUtils.escapeAndJoin(arguments)]
-        else:
-            commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
 
-        GdalUtils.runGdal(commands, progress)
+        commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
+        GdalUtils.runGdal(commands, feedback)
 
-        output = self.getOutputValue(self.OUTPUT)
-        f = open(output, 'w')
-        f.write('<pre>')
-        for s in GdalUtils.getConsoleOutput()[1:]:
-            f.write(unicode(s))
-        f.write('</pre>')
-        f.close()          
+        return {}

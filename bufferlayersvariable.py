@@ -27,31 +27,24 @@ __revision__ = '$Format:%H$'
 
 import os
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import *
+from qgis.core import (QgsProcessing,
+                       QgsProcessingAlgorithm,
+                       QgsProcessingParameterField,
+                       QgsProcessingParameterString,
+                       QgsProcessingParameterBoolean,
+                       QgsProcessingParameterVectorLayer,
+                       QgsDataSourceUri
+                      )
+from processing.algs.gdal import GdalUtils
 
-from processing.core.parameters import ParameterVector
-from processing.core.parameters import ParameterString
-from processing.core.parameters import ParameterNumber
-from processing.core.parameters import ParameterBoolean
-from processing.core.parameters import ParameterTableField
-from processing.core.outputs import OutputVector
-from processing.core.outputs import OutputHTML
+pluginPath = os.path.dirname(__file__)
 
-from processing.tools.system import *
-from processing.tools import dataobjects
 
-from processing.core.GeoAlgorithm import GeoAlgorithm
-from processing.algs.gdal.GdalUtils import GdalUtils
-from processing.tools.vector import ogrConnectionString, ogrLayerName
+class bufferlayersvariable(QgsProcessingAlgorithm):
 
-class bufferlayersvariable(GeoAlgorithm):
-
-    OUTPUT_LAYER = 'OUTPUT_LAYER'
     INPUT_LAYER = 'INPUT_LAYER'
-    GEOMETRY = 'GEOMETRY'
     DISTANCE = 'DISTANCE'
     DISSOLVEALL = 'DISSOLVEALL'
     FIELDS = 'FIELDS'
@@ -60,57 +53,85 @@ class bufferlayersvariable(GeoAlgorithm):
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
     OPTIONS = 'OPTIONS'
-    OUTPUT = 'OUTPUT'
-    
-    def getIcon(self):
-        return  QIcon(os.path.dirname(__file__) + '/icons/postgis.png')
 
-    def defineCharacteristics(self):
-        self.name = 'Buffer (variable distance)'
-        self.group = 'Vector geoprocessing'
+    def __init__(self):
+        super().__init__()
 
-        self.addParameter(ParameterVector(self.INPUT_LAYER,
-            self.tr('Input layer'), [ParameterVector.VECTOR_TYPE_ANY], False))
-        self.addParameter(ParameterString(self.FIELDS, 'Attributes to keep (comma separated list). Aliasing permitted. Ignored if dissolving outputs.',
-                          '', optional=False))
-        self.addParameter(ParameterTableField(self.DISTANCE,
-            self.tr('Numeric attribute for buffer distance)'), self.INPUT_LAYER, optional=False))
-        self.addParameter(ParameterBoolean(self.DISSOLVEALL,
-            self.tr('Dissolve all'), False))
-        self.addParameter(ParameterTableField(self.DISSFIELD,
-            self.tr('Dissolve by attribute (ignored if "Dissolve all" is selected)'), self.INPUT_LAYER, optional=True))
-        self.addParameter(ParameterBoolean(self.SINGLE,
-            self.tr('Force output as singlepart'), False))
-        self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
-                          'public', optional=False))
-        self.addParameter(ParameterString(self.TABLE, 'Output table name',
-                          'buffer', optional=False))
-        self.addParameter(ParameterString(self.OPTIONS,
-            self.tr('Additional creation options (see ogr2ogr manual)'),
-            '', optional=True))
-        self.addOutput(OutputHTML(self.OUTPUT, 'Output log'))
-        
-    def processAlgorithm(self, progress):
-        inLayer = self.getParameterValue(self.INPUT_LAYER)
-        ogrLayer = ogrConnectionString(inLayer)[1:-1]
-        layername = ogrLayerName(inLayer)
-        dsUri = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER))
+    def createInstance(self):
+        return type(self)()
+
+    def icon(self):
+        return QIcon(os.path.join(pluginPath, 'icons', 'postgis.png'))
+
+    def name(self):
+        return 'buffervariabledistance'
+
+    def displayName(self):
+        return 'Buffer (variable distance)'
+
+    def group(self):
+        return 'Vector geoprocessing'
+
+    def groupId(self):
+        return 'vectorgeoprocessing'
+
+    def initAlgorithm(self, config=None):
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER,
+                                                            'Input layer',
+                                                            [QgsProcessing.TypeVectorAnyGeometry]))
+        self.addParameter(QgsProcessingParameterField(self.FIELDS,
+                                                      'Attributes to keep',
+                                                      None,
+                                                      self.INPUT_LAYER,
+                                                      allowMultiple=True))
+        self.addParameter(QgsProcessingParameterField(self.DISTANCE,
+                                                      'Numeric attribute for buffer distance)',
+                                                      None,
+                                                      self.INPUT_LAYER,
+                                                      QgsProcessingParameterField.Numeric))
+        self.addParameter(QgsProcessingParameterBoolean(self.DISSOLVEALL,
+                                                        'Dissolve all',
+                                                        False))
+        self.addParameter(QgsProcessingParameterField(self.DISSFIELD,
+                                                      'Dissolve by attribute (ignored if "Dissolve all" is selected)',
+                                                      None,
+                                                      self.INPUT_LAYER))
+        self.addParameter(QgsProcessingParameterBoolean(self.SINGLE,
+                                                        'Force output as singlepart',
+                                                        False))
+        self.addParameter(QgsProcessingParameterString(self.SCHEMA,
+                                                       'Output schema',
+                                                       'public'))
+        self.addParameter(QgsProcessingParameterString(self.TABLE,
+                                                       'Output table name',
+                                                       'buffer'))
+        self.addParameter(QgsProcessingParameterString(self.OPTIONS,
+                                                       'Additional creation options (see ogr2ogr manual)',
+                                                       '',
+                                                       optional=True))
+
+    def processAlgorithm(self, parameters, context, feedback):
+        inLayer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        ogrLayer = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        layername = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+
+        dsUri = QgsDataSourceURI(inLayer.source())
         geomColumn = dsUri.geometryColumn()
-        layer = dataobjects.getObjectFromUri(self.getParameterValue(self.INPUT_LAYER))
-        geomType = layer.geometryType()
-        wkbType = layer.wkbType()
         srid = layer.crs().postgisSrid()
-        fields = unicode(self.getParameterValue(self.FIELDS))
-        dissfield = unicode(self.getParameterValue(self.DISSFIELD))
-        schema = unicode(self.getParameterValue(self.SCHEMA))
-        table = unicode(self.getParameterValue(self.TABLE))
-        options = unicode(self.getParameterValue(self.OPTIONS))
-        distance = unicode(self.getParameterValue(self.DISTANCE))
-        dissolveall = self.getParameterValue(self.DISSOLVEALL)
-        single = self.getParameterValue(self.SINGLE)
+
+        fields = self.parameterAsFields(parameters, self.FIELDS, context)
+        dissfield = self.parameterAsString(parameters, self.DISSFIELD, context)
+
+        schema = self.parameterAsString(parameters, self.SCHEMA, context)
+        table = self.parameterAsString(parameters, self.TABLE, context)
+        options = self.parameterAsString(parameters, self.OPTIONS, context)
+
+        distance = self.parameterAsString(parameters, self.DISTANCE, context)
+        dissolveall = self.parameterAsBool(parameters, self.DISSOLVEALL, context)
+        single = self.parameterAsBool(parameters, self.SINGLE, context)
 
         if len(fields) > 0:
-           fieldstring = fields + ","
+           fieldstring = ",".join(fields) + ","
         else:
            fieldstring = ""
 
@@ -120,9 +141,9 @@ class bufferlayersvariable(GeoAlgorithm):
              else:
                 query = '-sql "SELECT (ST_Multi(ST_Union(ST_Buffer(' + geomColumn + ',' + distance + '))))::geometry(MULTIPOLYGON,' + str(srid) + ') AS geom FROM ' + layername + '" -nln ' + schema + '.' + table + ' -nlt MULTIPOLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
         else:
-           if dissfield != 'None':
+           if dissfield is not None:
              if single:
-                query = '-sql "SELECT ' + dissfield + ',(ST_Dump(ST_Union(ST_Buffer(' + geomColumn + ',' + distance + ')))).geom::geometry(POLYGON,' + str(srid) + ') AS geom FROM ' + layername + ' GROUP BY ' + dissfield + '" -nln ' + schema + '.' + table + ' -nlt POLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'       
+                query = '-sql "SELECT ' + dissfield + ',(ST_Dump(ST_Union(ST_Buffer(' + geomColumn + ',' + distance + ')))).geom::geometry(POLYGON,' + str(srid) + ') AS geom FROM ' + layername + ' GROUP BY ' + dissfield + '" -nln ' + schema + '.' + table + ' -nlt POLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
              else:
                 query = '-sql "SELECT ' + dissfield + ',(ST_Multi(ST_Union(ST_Buffer(' + geomColumn + ',' + distance + '))))::geometry(MULTIPOLYGON,' + str(srid) + ') AS geom FROM ' + layername + ' GROUP BY ' + dissfield + '" -nln ' + schema + '.' + table + ' -nlt MULTIPOLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
            else:
@@ -131,7 +152,6 @@ class bufferlayersvariable(GeoAlgorithm):
              else:
                 query = '-sql "SELECT ' + fieldstring + '(ST_Multi(ST_Buffer(' + geomColumn + ',' + distance + ')))::geometry(MULTIPOLYGON,' + str(srid) + ') AS geom FROM ' + layername + '" -nln ' + schema + '.' + table + ' -nlt MULTIPOLYGON -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES'
 
-        print dissfield 
         arguments = []
         arguments.append('-f')
         arguments.append('PostgreSQL')
@@ -139,23 +159,11 @@ class bufferlayersvariable(GeoAlgorithm):
         arguments.append(ogrLayer)
         arguments.append(query)
         arguments.append('-overwrite')
-                
+
         if len(options) > 0:
             arguments.append(options)
 
-        commands = []
-        if isWindows():
-            commands = ['cmd.exe', '/C ', 'ogr2ogr.exe',
-                        GdalUtils.escapeAndJoin(arguments)]
-        else:
-            commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
+        commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
+        GdalUtils.runGdal(commands, feedback)
 
-        GdalUtils.runGdal(commands, progress)
-
-        output = self.getOutputValue(self.OUTPUT)
-        f = open(output, 'w')
-        f.write('<pre>')
-        for s in GdalUtils.getConsoleOutput()[1:]:
-            f.write(unicode(s))
-        f.write('</pre>')
-        f.close()          
+        return {}

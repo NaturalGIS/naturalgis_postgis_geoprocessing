@@ -27,97 +27,128 @@ __revision__ = '$Format:%H$'
 
 import os
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import *
+from qgis.core import (QgsProcessing,
+                       QgsProcessingAlgorithm,
+                       QgsProcessingParameterField,
+                       QgsProcessingParameterString,
+                       QgsProcessingParameterBoolean,
+                       QgsProcessingParameterDistance,
+                       QgsProcessingParameterVectorLayer,
+                       QgsDataSourceUri,
+                       QgsWkbTypes
+                      )
+from processing.algs.gdal import GdalUtils
 
-from processing.core.parameters import ParameterVector
-from processing.core.parameters import ParameterString
-from processing.core.parameters import ParameterNumber
-from processing.core.parameters import ParameterBoolean
-from processing.core.parameters import ParameterTableField
-from processing.core.outputs import OutputVector
-from processing.core.outputs import OutputHTML
+pluginPath = os.path.dirname(__file__)
 
-from processing.tools.system import *
-from processing.tools import dataobjects
 
-from processing.core.GeoAlgorithm import GeoAlgorithm
-from processing.algs.gdal.GdalUtils import GdalUtils
-from processing.tools.vector import ogrConnectionString, ogrLayerName
-
-class selectbypoint(GeoAlgorithm):
+class selectbypoint(QgsProcessingAlgorithm):
 
     INPUT_LAYER_A = 'INPUT_LAYER_A'
     INPUT_LAYER_B = 'INPUT_LAYER_B'
     FIELDS_B = 'FIELDS_B'
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
-    SINGLE = 'SINGLE' 
-    BUFFER = 'BUFFER' 
-    KEEP = 'KEEP' 
+    SINGLE = 'SINGLE'
+    BUFFER = 'BUFFER'
+    KEEP = 'KEEP'
     OPTIONS = 'OPTIONS'
-    OUTPUT = 'OUTPUT'
-    
-    def getIcon(self):
-        return  QIcon(os.path.dirname(__file__) + '/icons/postgis.png')
 
-    def defineCharacteristics(self):
-        self.name = 'Select by points (select by location)'
-        self.group = 'Vector geoprocessing'
+    def __init__(self):
+        super().__init__()
 
-        self.addParameter(ParameterVector(self.INPUT_LAYER_A, 'Point layer used for the selection',
-                          [ParameterVector.VECTOR_TYPE_POINT], False))
-        self.addParameter(ParameterVector(self.INPUT_LAYER_B, 'Select features from',
-                          [ParameterVector.VECTOR_TYPE_ANY], False))
-        self.addParameter(ParameterString(self.FIELDS_B, 'Attributes to keep (comma separated list). Aliasing permitted.',
-                          '', optional=False))
-        self.addParameter(ParameterString(self.BUFFER, 'Buffer distance for points selection layer.',
-                          '0', optional=False))
-        self.addParameter(ParameterBoolean(self.SINGLE,
-                          'Force output as singlepart', True))
-        self.addParameter(ParameterBoolean(self.KEEP,
-                          'Select also features just touching the selection layer (used when buffering or selecting polygons)', False))
-        self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
-                          'public', optional=False))
-        self.addParameter(ParameterString(self.TABLE, 'Output table name',
-                          'select', optional=False))
-        self.addParameter(ParameterString(self.OPTIONS, 'Additional creation options (see ogr2ogr manual)',
-                          '', optional=True))
-        self.addOutput(OutputHTML(self.OUTPUT, 'Output log'))
-        
-    def processAlgorithm(self, progress):
-        inLayerA = self.getParameterValue(self.INPUT_LAYER_A)
-        ogrLayerA = ogrConnectionString(inLayerA)[1:-1]
-        layernameA = ogrLayerName(inLayerA)
-        inLayerB = self.getParameterValue(self.INPUT_LAYER_B)
-        ogrLayerB = ogrConnectionString(inLayerB)[1:-1]
-        layernameB = ogrLayerName(inLayerB)
-        fieldsB = unicode(self.getParameterValue(self.FIELDS_B))
-        dsUriA = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_A))
-        geomColumnA = dsUriA.geometryColumn()
-        dsUriB = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_B))
+    def createInstance(self):
+        return type(self)()
+
+    def icon(self):
+        return QIcon(os.path.join(pluginPath, 'icons', 'postgis.png'))
+
+    def name(self):
+        return 'selectbypointsselectbylocation'
+
+    def displayName(self):
+        return 'Select by points (select by location)'
+
+    def group(self):
+        return 'Vector geoprocessing'
+
+    def groupId(self):
+        return 'vectorgeoprocessing'
+
+    def initAlgorithm(self, config=None):
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER_A,
+                                                    'Point layer used for the selection',
+                                                    [QgsProcessing.TypeVectorPoint]))
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER_B,
+                                                    'Select features from',
+                                                    [QgsProcessing.TypeVectorAnyGeometry]))
+        self.addParameter(QgsProcessingParameterField(self.FIELDS_B,
+                                                      'Attributes to keep',
+                                                      None,
+                                                      self.INPUT_LAYER_B,
+                                                      allowMultiple=True))
+        self.addParameter(QgsProcessingParameterDistance(self.BUFFER,
+                                                         'Buffer distance for points selection layer',
+                                                         0.0001,
+                                                         self.INPUT_LAYER_A,
+                                                         False,
+                                                         0,
+                                                         1000000000.0))
+        self.addParameter(QgsProcessingParameterBoolean(self.SINGLE,
+                                                        'Force output as singlepart',
+                                                        True))
+        self.addParameter(QgsProcessingParameterBoolean(self.KEEP,
+                                                        'Select also features just touching the selection layer (used when buffering or selecting polygons)',
+                                                        False))
+        self.addParameter(QgsProcessingParameterString(self.SCHEMA,
+                                                       'Output schema',
+                                                       'public'))
+        self.addParameter(QgsProcessingParameterString(self.TABLE,
+                                                       'Output table name',
+                                                       'select'))
+        self.addParameter(QgsProcessingParameterString(self.OPTIONS,
+                                                       'Additional creation options (see ogr2ogr manual)',
+                                                       '',
+                                                       optional=True))
+
+    def processAlgorithm(self, parameters, context, feedback):
+        inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
+        ogrLayerA = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+
+        inLayerB = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_B, context)
+        ogrLayerB = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        layernameB = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+
+        fieldsB = self.parameterAsFields(parameters, self.FIELDS_B, context)
+
+        uri = QgsDataSourceUri(inLayerA.source())
+        geomColumnA = uri.geometryColumn()
+        uri = QgsDataSourceUri(inLayerB.source())
         geomColumnB = dsUriB.geometryColumn()
-        layerB = dataobjects.getObjectFromUri(self.getParameterValue(self.INPUT_LAYER_B))
-        geomTypeB = layerB.geometryType()
-        wkbTypeB = layerB.wkbType()
-        sridB = layerB.crs().postgisSrid()
-        schema = unicode(self.getParameterValue(self.SCHEMA))
-        table = unicode(self.getParameterValue(self.TABLE))
-        single = self.getParameterValue(self.SINGLE)
-        keep = self.getParameterValue(self.KEEP)
-        bufferdist = self.getParameterValue(self.BUFFER)
-        
-        if len(fieldsB) > 0:
-           fieldstringB = fieldsB.replace(",", ", g2.")
-           fieldstringB = ", g2." + fieldstringB
-        else:
-           fieldstringB = ""          
 
-        if geomTypeB == 0:
+        geomTypeB = layerB.geometryType()
+        sridB = layerB.crs().postgisSrid()
+
+        schema = self.parameterAsString(parameters, self.SCHEMA, context)
+        table = self.parameterAsString(parameters, self.TABLE, context)
+        options = self.parameterAsString(parameters, self.OPTIONS, context)
+
+        single = self.parameterAsBool(parameters, self.SINGLE, context)
+        keep = self.parameterAsBool(parameters, self.KEEP, context)
+        bufferdist = str(self.parameterAsDouble(parameters, self.BUFFER, context))
+
+        if len(fieldsB) > 0:
+           fieldstringB = ', '.join(["g2.{}".format(f) for f in fieldsB])
+           fieldstringB = ", " + fieldstringB
+        else:
+           fieldstringB = ""
+
+        if geomTypeB == QgsWkbTypes.PointGeometry:
            type = "POINT"
-        elif geomTypeB == 1:
+        elif geomTypeB == QgsWkbTypes.LineGeometry:
            type = "LINESTRING"
         else:
            type = "POLYGON"
@@ -131,18 +162,18 @@ class selectbypoint(GeoAlgorithm):
            multistring = "-nlt MULTI" + type
            caststring = "MULTI" + type
            st_function = "ST_Multi"
-           castgeom = ""           
-           
-        if geomTypeB == 0:        
-           if bufferdist == '0' or bufferdist == '':
+           castgeom = ""
+
+        if geomTypeB == QgsWkbTypes.PointGeometry:
+           if bufferdist == 0.0:
               sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g2." + geomColumnB + ",g1." + geomColumnA + ") is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
            else:
               if keep:
                  sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE (ST_Intersects(ST_Buffer(g1." + geomColumnA + "," + bufferdist + "),g2." + geomColumnB + ")) is true OR (ST_Touches(ST_Buffer(g1." + geomColumnA + "," + bufferdist + "),g2." + geomColumnB + ")) is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
               else:
                  sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE (ST_Intersects(ST_Buffer(g1." + geomColumnA + "," + bufferdist + "),g2." + geomColumnB + ")) is true AND (ST_Touches(ST_Buffer(g1." + geomColumnA + "," + bufferdist + "),g2." + geomColumnB + ")) is false\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
-        elif geomTypeB == 1:
-           if bufferdist == '0' or bufferdist == '':
+        elif geomTypeB == QgsWkbTypes.LineGeometry:
+           if bufferdist == 0.0:
               sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g2." + geomColumnB + ",g1." + geomColumnA + ") is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
            else:
               if keep:
@@ -150,18 +181,16 @@ class selectbypoint(GeoAlgorithm):
               else:
                  sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE (ST_Intersects(ST_Buffer(g1." + geomColumnA + "," + bufferdist + "),g2." + geomColumnB + ")) is true AND (ST_Touches(ST_Buffer(g1." + geomColumnA + "," + bufferdist + "),g2." + geomColumnB + ")) is false\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
         else:
-           if bufferdist == '0' or bufferdist == '':
+           if bufferdist == 0.0:
               if keep:
                  sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Intersects(g2." + geomColumnB + ",g1." + geomColumnA + ") is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
               else:
                  sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE ST_Within(g1." + geomColumnA + ",g2." + geomColumnB + ") is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
-           else: 
+           else:
               if keep:
                  sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE (ST_Intersects(ST_Buffer(g1." + geomColumnA + "," + bufferdist + "),g2." + geomColumnB + ")) is true OR ST_Contains(g2." + geomColumnB+ ",ST_Buffer(g1." + geomColumnA + "," + bufferdist + ")) is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
               else:
                  sqlstring = "-sql \"SELECT (" + st_function + "(g2." + geomColumnB + "))" + castgeom + "::geometry(" + caststring + "," + str(sridB) + ") AS geom" + fieldstringB + " FROM " + layernameA + " AS g1, " + layernameB + " AS g2 WHERE (ST_Contains(ST_Buffer(g1." + geomColumnA + "," + bufferdist + "),g2." + geomColumnB + ")) is true OR ST_Overlaps(ST_Buffer(g1." + geomColumnA + "," + bufferdist + "),g2." + geomColumnB + ") is true OR ST_Contains(g2." + geomColumnB+ ",ST_Buffer(g1." + geomColumnA + "," + bufferdist + ")) is true\" -nln " + schema + "." + table + " -lco FID=gid " + multistring + " -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
-
-        options = unicode(self.getParameterValue(self.OPTIONS))
 
         arguments = []
         arguments.append('-f')
@@ -170,23 +199,11 @@ class selectbypoint(GeoAlgorithm):
         arguments.append(ogrLayerA)
         arguments.append(sqlstring)
         arguments.append('-overwrite')
-                
+
         if len(options) > 0:
             arguments.append(options)
-        print geomTypeB
-        commands = []
-        if isWindows():
-            commands = ['cmd.exe', '/C ', 'ogr2ogr.exe',
-                        GdalUtils.escapeAndJoin(arguments)]
-        else:
-            commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
 
-        GdalUtils.runGdal(commands, progress)
+        commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
+        GdalUtils.runGdal(commands, feedback)
 
-        output = self.getOutputValue(self.OUTPUT)
-        f = open(output, 'w')
-        f.write('<pre>')
-        for s in GdalUtils.getConsoleOutput()[1:]:
-            f.write(unicode(s))
-        f.write('</pre>')
-        f.close()          
+        return {}

@@ -27,11 +27,11 @@ __revision__ = '$Format:%H$'
 
 import os
 
-from PyQt4.QtGui import *
+from qgis.PyQt.QtGui import QIcon
 
-from processing.core.AlgorithmProvider import AlgorithmProvider
-from processing.core.ProcessingConfig import Setting, ProcessingConfig
-from processing.tools import system
+from qgis.core import QgsProcessingProvider
+
+from processing.core.ProcessingConfig import ProcessingConfig, Setting
 
 from postgis_geoprocessing.distance import distance
 from postgis_geoprocessing.clipbypolygon import clipbypolygon
@@ -49,33 +49,69 @@ from postgis_geoprocessing.selectbypoint import selectbypoint
 from postgis_geoprocessing.selectbyline import selectbyline
 from postgis_geoprocessing.samplewithpoints import samplewithpoints
 
-class OgrGeoprocessingProvider(AlgorithmProvider):
+OGR_GEOPROCESSING_ACTIVE = 'OGR_GEOPROCESSING_ACTIVE'
+
+pluginPath = os.path.dirname(__file__)
+
+
+class OgrGeoprocessingProvider(QgsProcessingProvider):
 
     def __init__(self):
-        AlgorithmProvider.__init__(self)
+        super().__init__()
+        self.algs = []
 
-        self.activate = False
+    def id(self):
+        return 'postgisgeoprocessing'
 
-        self.alglist = [distance(),clipbypolygon(),makevalid(),difference(),dissolve(),extractinvalid(),
-                        bufferlayers(),makevalidbufferzero(),bufferlayersvariable(),closestpoint(),distancematrix(),
-                        selectbypolygon(),selectbypoint(),selectbyline(),samplewithpoints()]
-        for alg in self.alglist:
-            alg.provider = self
+    def name(self):
+        return 'PostGIS Geoprocessing tools'
 
-    def initializeSettings(self):
-        AlgorithmProvider.initializeSettings(self)
+    def icon(self):
+        return QIcon(os.path.join(pluginPath, 'icons', 'naturalgis_32.png'))
+
+    def load(self):
+        ProcessingConfig.settingIcons[self.name()] = self.icon()
+        ProcessingConfig.addSetting(Setting(self.name(),
+                                            OGR_GEOPROCESSING_ACTIVE,
+                                            'Activate',
+                                            True))
+        ProcessingConfig.readSettings()
+        self.refreshAlgorithms()
+        return True
 
     def unload(self):
-        AlgorithmProvider.unload(self)
+        ProcessingConfig.removeSetting(OGR_GEOPROCESSING_ACTIVE)
 
-    def getName(self):
-        return 'PostGIS Geoprocessing tools'
+    def isActive(self):
+        return ProcessingConfig.getSetting(OGR_GEOPROCESSING_ACTIVE)
 
-    def getDescription(self):
-        return 'PostGIS Geoprocessing tools'
+    def setActive(self, active):
+        ProcessingConfig.setSettingValue(OGR_GEOPROCESSING_ACTIVE, active)
 
-    def getIcon(self):
-        return QIcon(os.path.dirname(__file__) + '/icons/naturalgis_32.png')
+    def supportsNonFileBasedOutput(self):
+        return True
 
-    def _loadAlgorithms(self):
-        self.algs = self.alglist
+    def getAlgs(self):
+        algs = [distance(),
+                clipbypolygon(),
+                makevalid(),
+                difference(),
+                dissolve(),
+                extractinvalid(),
+                bufferlayers(),
+                makevalidbufferzero(),
+                bufferlayersvariable(),
+                closestpoint(),
+                distancematrix(),
+                selectbypolygon(),
+                selectbypoint(),
+                selectbyline(),
+                samplewithpoints()
+               ]
+
+        return algs
+
+    def loadAlgorithms(self):
+        self.algs = self.getAlgs()
+        for a in self.algs:
+            self.addAlgorithm(a)

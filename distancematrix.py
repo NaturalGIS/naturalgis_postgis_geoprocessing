@@ -27,68 +27,82 @@ __revision__ = '$Format:%H$'
 
 import os
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from qgis.PyQt.QtGui import QIcon
 
-from qgis.core import *
+from qgis.core import (QgsProcessing,
+                       QgsProcessingAlgorithm,
+                       QgsProcessingParameterField,
+                       QgsProcessingParameterString,
+                       QgsProcessingParameterVectorLayer,
+                       QgsDataSourceUri
+                      )
+from processing.algs.gdal import GdalUtils
 
-from processing.core.parameters import ParameterVector
-from processing.core.parameters import ParameterString
-from processing.core.parameters import ParameterNumber
-from processing.core.parameters import ParameterBoolean
-from processing.core.parameters import ParameterTableField
-from processing.core.outputs import OutputVector
-from processing.core.outputs import OutputHTML
+pluginPath = os.path.dirname(__file__)
 
-from processing.tools.system import *
-from processing.tools import dataobjects
 
-from processing.core.GeoAlgorithm import GeoAlgorithm
-from processing.algs.gdal.GdalUtils import GdalUtils
-from processing.tools.vector import ogrConnectionString, ogrLayerName
+class distancematrix(QgsProcessingAlgorithm):
 
-class distancematrix(GeoAlgorithm):
-
-    OUTPUT_LAYER = 'OUTPUT_LAYER'
     INPUT_LAYER_A = 'INPUT_LAYER_A'
     FIELD_A = 'FIELD_A'
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
     OPTIONS = 'OPTIONS'
-    OUTPUT = 'OUTPUT'
-    
-    def getIcon(self):
-        return  QIcon(os.path.dirname(__file__) + '/icons/postgis.png')
 
-    def defineCharacteristics(self):
-        self.name = 'Distance matrix'
-        self.group = 'Vector geoprocessing'
+    def __init__(self):
+        super().__init__()
 
-        self.addParameter(ParameterVector(self.INPUT_LAYER_A, 'Input layer',
-                          [ParameterVector.VECTOR_TYPE_ANY], False))
-        self.addParameter(ParameterTableField(self.FIELD_A, 'Input layer unique ID',
-                          self.INPUT_LAYER_A, optional=False))
-        self.addParameter(ParameterString(self.SCHEMA, 'Output schema',
-                          'public', optional=False))
-        self.addParameter(ParameterString(self.TABLE, 'Output table name',
-                          'distance_matrix', optional=False))
-        self.addParameter(ParameterString(self.OPTIONS, 'Additional creation options (see ogr2ogr manual)',
-                          '', optional=True))
-        self.addOutput(OutputHTML(self.OUTPUT, 'Output log'))
-        
-    def processAlgorithm(self, progress):
-        inLayerA = self.getParameterValue(self.INPUT_LAYER_A)
-        ogrLayerA = ogrConnectionString(inLayerA)[1:-1]
-        layernameA = ogrLayerName(inLayerA)
-        layerA = dataobjects.getObjectFromUri(self.getParameterValue(self.INPUT_LAYER_A))
-        fieldA = unicode(self.getParameterValue(self.FIELD_A))
-        dsUriA = QgsDataSourceURI(self.getParameterValue(self.INPUT_LAYER_A))
+    def createInstance(self):
+        return type(self)()
+
+    def icon(self):
+        return QIcon(os.path.join(pluginPath, 'icons', 'postgis.png'))
+
+    def name(self):
+        return 'distancematrix'
+
+    def displayName(self):
+        return 'Distance matrix'
+
+    def group(self):
+        return 'Vector geoprocessing'
+
+    def groupId(self):
+        return 'vectorgeoprocessing'
+
+    def initAlgorithm(self, config=None):
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER_A,
+                                                            'Input layer',
+                                                            [QgsProcessing.TypeVectorAnyGeometry]))
+        self.addParameter(QgsProcessingParameterField(self.FIELD_A,
+                                                      'Input layer unique ID',
+                                                      None,
+                                                      self.INPUT_LAYER_A))
+        self.addParameter(QgsProcessingParameterString(self.SCHEMA,
+                                                       'Output schema',
+                                                       'public'))
+        self.addParameter(QgsProcessingParameterString(self.TABLE,
+                                                       'Output table name',
+                                                       'distance_matrix'))
+        self.addParameter(QgsProcessingParameterString(self.OPTIONS,
+                                                       'Additional creation options (see ogr2ogr manual)',
+                                                       '',
+                                                       optional=True))
+
+    def processAlgorithm(self, parameters, context, feedback):
+        inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
+        ogrLayerA = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+
+        fieldA = self.parameterAsString(parameters, self.FIELD_A, context)
+
+        dsUriA = QgsDataSourceURI(inLayerA.source())
         geomColumnA = dsUriA.geometryColumn()
-        geomTypeA = layerA.geometryType()
-        wkbTypeA = layerA.wkbType()
-        sridA = layerA.crs().postgisSrid()
-        schema = unicode(self.getParameterValue(self.SCHEMA))
-        table = unicode(self.getParameterValue(self.TABLE))
+
+        schema = self.parameterAsString(parameters, self.SCHEMA, context)
+        table = self.parameterAsString(parameters, self.TABLE, context)
+        options = self.parameterAsString(parameters, self.OPTIONS, context)
+
         sqlstring = "-sql \"SELECT ST_Makeline(g1." + geomColumnA + ",g2." + geomColumnA + ") AS geom, ST_Distance(g1." + geomColumnA + ",g2." + geomColumnA + ") AS distance, g1." + fieldA + " AS id_from, g2." + fieldA + " AS id_to FROM " + layernameA + " AS g1, " + layernameA + " AS g2 WHERE g1." + fieldA + " > " + "g2." + fieldA +"\" -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom -nlt LINESTRING --config PG_USE_COPY YES"
 
         options = unicode(self.getParameterValue(self.OPTIONS))
@@ -100,23 +114,11 @@ class distancematrix(GeoAlgorithm):
         arguments.append(ogrLayerA)
         arguments.append(sqlstring)
         arguments.append('-overwrite')
-                
+
         if len(options) > 0:
             arguments.append(options)
-        #print table   
-        commands = []
-        if isWindows():
-            commands = ['cmd.exe', '/C ', 'ogr2ogr.exe',
-                        GdalUtils.escapeAndJoin(arguments)]
-        else:
-            commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
 
-        GdalUtils.runGdal(commands, progress)
+        commands = ['ogr2ogr', GdalUtils.escapeAndJoin(arguments)]
+        GdalUtils.runGdal(commands, feedback)
 
-        output = self.getOutputValue(self.OUTPUT)
-        f = open(output, 'w')
-        f.write('<pre>')
-        for s in GdalUtils.getConsoleOutput()[1:]:
-            f.write(unicode(s))
-        f.write('</pre>')
-        f.close()        
+        return {}

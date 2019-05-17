@@ -25,8 +25,7 @@ __copyright__ = '(C) 2015, Giovanni Manghi'
 
 __revision__ = '$Format:%H$'
 
-from postgis_geoprocessing.OgrGeoprocessingProviderPlugin import \
-    OgrGeoprocessingProviderPlugin
+from postgis_geoprocessing.OgrGeoprocessingProviderPlugin import OgrGeoprocessingProviderPlugin
 
 
 def classFactory(iface):
