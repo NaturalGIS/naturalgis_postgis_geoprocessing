@@ -39,7 +39,7 @@ from qgis.core import (QgsProcessing,
                        QgsDataSourceUri,
                        QgsWkbTypes
                       )
-from processing.algs.gdal import GdalUtils
+from processing.algs.gdal.GdalUtils import GdalUtils
 
 pluginPath = os.path.dirname(__file__)
 
