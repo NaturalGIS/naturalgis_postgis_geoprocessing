@@ -95,7 +95,7 @@ class makevalid(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         inLayer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
-        ogrLayer = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        ogrLayer = GdalUtils.ogrConnectionStringFromLayer(inLayerA)[1:-1]
         layername = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
 
         fields = self.parameterAsFields(parameters, self.FIELDS, context)

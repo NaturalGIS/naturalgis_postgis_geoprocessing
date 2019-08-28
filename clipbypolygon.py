@@ -112,12 +112,12 @@ class clipbypolygon(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
-        ogrLayerA = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)[1:-1]
         layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
 
         inLayerB = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_B, context)
-        ogrLayerB = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
-        layernameB = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+        ogrLayerB = GdalUtils.ogrConnectionStringFromLayer(inLayerB)[1:-1]
+        layernameB = GdalUtils.ogrLayerName(inLayerB.dataProvider().dataSourceUri())
 
         fieldsA = self.parameterAsFields(parameters, self.FIELDS_A, context)
         fieldsB = self.parameterAsFields(parameters, self.FIELDS_B, context)

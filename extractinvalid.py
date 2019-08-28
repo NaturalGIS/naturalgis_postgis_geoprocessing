@@ -93,7 +93,7 @@ class extractinvalid(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
-        ogrLayerA = GdalUtils.ogrConnectionString(inLayerA.dataProvider().dataSourceUri(), context)[1:-1]
+        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)[1:-1]
         layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
 
         fields = self.parameterAsFields(parameters, self.FIELDS, context)
