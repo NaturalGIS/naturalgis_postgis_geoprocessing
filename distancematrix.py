@@ -4,8 +4,8 @@
 ***************************************************************************
     distancematrix.py
     ---------------------
-    Date                 : January 2015
-    Copyright            : (C) 2015 by Giovanni Manghi
+    Date                 : August 2019
+    Copyright            : (C) 2019 by Giovanni Manghi
     Email                : giovanni dot manghi at naturalgis dot pt
 ***************************************************************************
 *                                                                         *
@@ -17,9 +17,10 @@
 ***************************************************************************
 """
 
-__author__ = 'Giovanni Manghi'
-__date__ = 'January 2015'
-__copyright__ = '(C) 2015, Giovanni Manghi'
+__author__ = 'Alexander Bruy and Giovanni Manghi'
+__date__ = 'August 2019'
+__copyright__ = '(C) 2019, Giovanni Manghi'
+
 
 # This will get replaced with a git SHA1 when you do a git archive
 
@@ -73,7 +74,7 @@ class distancematrix(QgsProcessingAlgorithm):
     def initAlgorithm(self, config=None):
         self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER_A,
                                                             'Input layer',
-                                                            [QgsProcessing.TypeVectorAnyGeometry]))
+                                                            [QgsProcessing.TypeVectorPoint]))
         self.addParameter(QgsProcessingParameterField(self.FIELD_A,
                                                       'Input layer unique ID',
                                                       None,
@@ -91,12 +92,12 @@ class distancematrix(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
-        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)[1:-1]
+        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)
         layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
 
         fieldA = self.parameterAsString(parameters, self.FIELD_A, context)
 
-        dsUriA = QgsDataSourceURI(inLayerA.source())
+        dsUriA = QgsDataSourceUri(inLayerA.source())
         geomColumnA = dsUriA.geometryColumn()
 
         schema = self.parameterAsString(parameters, self.SCHEMA, context)
@@ -104,8 +105,6 @@ class distancematrix(QgsProcessingAlgorithm):
         options = self.parameterAsString(parameters, self.OPTIONS, context)
 
         sqlstring = "-sql \"SELECT ST_Makeline(g1." + geomColumnA + ",g2." + geomColumnA + ") AS geom, ST_Distance(g1." + geomColumnA + ",g2." + geomColumnA + ") AS distance, g1." + fieldA + " AS id_from, g2." + fieldA + " AS id_to FROM " + layernameA + " AS g1, " + layernameA + " AS g2 WHERE g1." + fieldA + " > " + "g2." + fieldA +"\" -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom -nlt LINESTRING --config PG_USE_COPY YES"
-
-        options = unicode(self.getParameterValue(self.OPTIONS))
 
         arguments = []
         arguments.append('-f')

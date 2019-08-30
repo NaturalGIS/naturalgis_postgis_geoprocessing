@@ -4,8 +4,8 @@
 ***************************************************************************
     closestpoint.py
     ---------------------
-    Date                 : January 2015
-    Copyright            : (C) 2015 by Giovanni Manghi
+    Date                 : August 2019
+    Copyright            : (C) 2019 by Giovanni Manghi
     Email                : giovanni dot manghi at naturalgis dot pt
 ***************************************************************************
 *                                                                         *
@@ -17,9 +17,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Giovanni Manghi'
-__date__ = 'January 2015'
-__copyright__ = '(C) 2015, Giovanni Manghi'
+__author__ = 'Alexander Bruy and Giovanni Manghi'
+__date__ = 'August 2019'
+__copyright__ = '(C) 2019, Giovanni Manghi'
 
 # This will get replaced with a git SHA1 when you do a git archive
 
@@ -111,11 +111,11 @@ class closestpoint(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
-        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)[1:-1]
+        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)
         layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
 
         inLayerB = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_B, context)
-        ogrLayerB = GdalUtils.ogrConnectionStringFromLayer(inLayerB)[1:-1]
+        ogrLayerB = GdalUtils.ogrConnectionStringFromLayer(inLayerB)
         layernameB = GdalUtils.ogrLayerName(inLayerB.dataProvider().dataSourceUri())
 
         fieldA = self.parameterAsString(parameters, self.FIELD_A, context)
@@ -126,7 +126,7 @@ class closestpoint(QgsProcessingAlgorithm):
         uri = QgsDataSourceUri(inLayerB.source())
         geomColumnB = uri.geometryColumn()
 
-        sridA = layerA.crs().postgisSrid()
+        sridA = inLayerA.crs().postgisSrid()
 
         fields = self.parameterAsFields(parameters, self.FIELDS, context)
 
@@ -136,7 +136,7 @@ class closestpoint(QgsProcessingAlgorithm):
         options = self.parameterAsString(parameters, self.OPTIONS, context)
 
         if len(fields) > 0:
-           fieldstring = ','.join(["g1.{}".format(f) for f in fieldsA])
+           fieldstring = ','.join(["g1.{}".format(f) for f in fields])
            fieldstring = ", " + fieldstring
         else:
            fieldstring = ""
@@ -145,8 +145,6 @@ class closestpoint(QgsProcessingAlgorithm):
            sqlstring = "-sql \"WITH temp_table AS (SELECT ST_Union(" + geomColumnB + ") AS geom FROM " + layernameB + ") SELECT (ST_ClosestPoint(g2.geom, g1." + geomColumnA + "))::geometry(POINT," + str(sridA) + ") AS geom, ST_Distance(g1." + geomColumnA + ",g2.geom) AS distance, g1." + fieldA + " AS id_from" + fieldstring +  " FROM " + layernameA + " AS g1, temp_table AS g2\" -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom -nlt POINT --config PG_USE_COPY YES -a_srs EPSG:" + str(sridA) + ""
         else:
            sqlstring = "-sql \"SELECT (ST_ClosestPoint(g2." + geomColumnB + ",g1." + geomColumnA + "))::geometry(Point," + str(sridA) + ") AS geom, ST_Distance(g1." + geomColumnA + ",g2." + geomColumnB + ") AS distance, g1." + fieldA + " AS id_from" + fieldstring + ", g2." + fieldB + " AS id_to FROM " + layernameA + " AS g1, " + layernameB + " AS g2\" -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom -nlt POINT --config PG_USE_COPY YES"
-
-        options = unicode(self.getParameterValue(self.OPTIONS))
 
         arguments = []
         arguments.append('-f')

@@ -4,8 +4,8 @@
 ***************************************************************************
     extractinvalid.py
     ---------------------
-    Date                 : January 2015
-    Copyright            : (C) 2015 by Giovanni Manghi
+    Date                 : August 2019
+    Copyright            : (C) 2019 by Giovanni Manghi
     Email                : giovanni dot manghi at naturalgis dot pt
 ***************************************************************************
 *                                                                         *
@@ -17,9 +17,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Giovanni Manghi'
-__date__ = 'January 2015'
-__copyright__ = '(C) 2015, Giovanni Manghi'
+__author__ = 'Alexander Bruy and Giovanni Manghi'
+__date__ = 'August 2019'
+__copyright__ = '(C) 2019, Giovanni Manghi'
 
 # This will get replaced with a git SHA1 when you do a git archive
 
@@ -44,7 +44,7 @@ pluginPath = os.path.dirname(__file__)
 
 class extractinvalid(QgsProcessingAlgorithm):
 
-    INPUT_LAYER = 'INPUT_LAYER'
+    INPUT_LAYER_A = 'INPUT_LAYER_A'
     FIELDS = 'FIELDS'
     TABLE = 'TABLE'
     SCHEMA = 'SCHEMA'
@@ -72,13 +72,13 @@ class extractinvalid(QgsProcessingAlgorithm):
         return 'vectorgeoprocessing'
 
     def initAlgorithm(self, config=None):
-        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER,
+        self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER_A,
                                                             'Input layer',
                                                             [QgsProcessing.TypeVectorPolygon]))
         self.addParameter(QgsProcessingParameterField(self.FIELDS,
                                                       'Attributes to keep',
                                                       None,
-                                                      self.INPUT_LAYER,
+                                                      self.INPUT_LAYER_A,
                                                       allowMultiple=True))
         self.addParameter(QgsProcessingParameterString(self.SCHEMA,
                                                        'Output schema',
@@ -93,15 +93,15 @@ class extractinvalid(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
-        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)[1:-1]
+        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)
         layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
 
         fields = self.parameterAsFields(parameters, self.FIELDS, context)
 
-        uri = QgsDataSourceUri(inLayer.source())
+        uri = QgsDataSourceUri(inLayerA.source())
         geomColumn = uri.geometryColumn()
-        wkbType = layer.wkbType()
-        srid = layer.crs().postgisSrid()
+        wkbType = inLayerA.wkbType()
+        srid = inLayerA.crs().postgisSrid()
 
         schema = self.parameterAsString(parameters, self.SCHEMA, context)
         table = self.parameterAsString(parameters, self.TABLE, context)
@@ -114,16 +114,16 @@ class extractinvalid(QgsProcessingAlgorithm):
 
         if wkbType == QgsWkbTypes.Polygon:
            layertype = "POLYGON"
-           sqlstring = "-sql \"SELECT (ST_Dump(g1." + geomColumn + ")).geom::geometry(" + layertype + "," + str(srid) + ") AS geom, ST_IsValidReason(" + geomColumn + ") AS invalid_reason" + fieldstring + " FROM " + layername + " AS g1 WHERE NOT ST_IsValid(" + geomColumn + ")\" -nlt " + layertype + " -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+           sqlstring = "-sql \"SELECT (ST_Dump(g1." + geomColumn + ")).geom::geometry(" + layertype + "," + str(srid) + ") AS geom, ST_IsValidReason(" + geomColumn + ") AS invalid_reason" + fieldstring + " FROM " + layernameA + " AS g1 WHERE NOT ST_IsValid(" + geomColumn + ")\" -nlt " + layertype + " -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
         else:
             layertype = "MULTIPOLYGON"
-            sqlstring = "-sql \"SELECT (g1." + geomColumn + ")::geometry(" + layertype + "," + str(srid) + ") AS geom, ST_IsValidReason(" + geomColumn + ") AS invalid_reason" + fieldstring + " FROM " + layername + " AS g1 WHERE NOT ST_IsValid(" + geomColumn + ")\" -nlt " + layertype + " -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+            sqlstring = "-sql \"SELECT (g1." + geomColumn + ")::geometry(" + layertype + "," + str(srid) + ") AS geom, ST_IsValidReason(" + geomColumn + ") AS invalid_reason" + fieldstring + " FROM " + layernameA + " AS g1 WHERE NOT ST_IsValid(" + geomColumn + ")\" -nlt " + layertype + " -nln " + schema + "." + table + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
 
         arguments = []
         arguments.append('-f')
         arguments.append('PostgreSQL')
-        arguments.append(ogrLayer)
-        arguments.append(ogrLayer)
+        arguments.append(ogrLayerA)
+        arguments.append(ogrLayerA)
         arguments.append(sqlstring)
         arguments.append('-overwrite')
 

@@ -4,8 +4,8 @@
 ***************************************************************************
     selectbyline.py
     ---------------------
-    Date                 : January 2015
-    Copyright            : (C) 2015 by Giovanni Manghi
+    Date                 : August 2019
+    Copyright            : (C) 2019 by Giovanni Manghi
     Email                : giovanni dot manghi at naturalgis dot pt
 ***************************************************************************
 *                                                                         *
@@ -17,9 +17,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Giovanni Manghi'
-__date__ = 'January 2015'
-__copyright__ = '(C) 2015, Giovanni Manghi'
+__author__ = 'Alexander Bruy and Giovanni Manghi'
+__date__ = 'August 2019'
+__copyright__ = '(C) 2019, Giovanni Manghi'
 
 # This will get replaced with a git SHA1 when you do a git archive
 
@@ -116,11 +116,11 @@ class selectbyline(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
-        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)[1:-1]
+        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)
         layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
 
         inLayerB = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_B, context)
-        ogrLayerB = GdalUtils.ogrConnectionStringFromLayer(inLayerB)[1:-1]
+        ogrLayerB = GdalUtils.ogrConnectionStringFromLayer(inLayerB)
         layernameB = GdalUtils.ogrLayerName(inLayerB.dataProvider().dataSourceUri())
 
         fieldsB = self.parameterAsFields(parameters, self.FIELDS_B, context)
@@ -128,10 +128,10 @@ class selectbyline(QgsProcessingAlgorithm):
         uri = QgsDataSourceUri(inLayerA.source())
         geomColumnA = uri.geometryColumn()
         uri = QgsDataSourceUri(inLayerB.source())
-        geomColumnB = dsUriB.geometryColumn()
+        geomColumnB = uri.geometryColumn()
 
-        geomTypeB = layerB.geometryType()
-        sridB = layerB.crs().postgisSrid()
+        geomTypeB = inLayerB.geometryType()
+        sridB = inLayerB.crs().postgisSrid()
 
         schema = self.parameterAsString(parameters, self.SCHEMA, context)
         table = self.parameterAsString(parameters, self.TABLE, context)
@@ -139,7 +139,7 @@ class selectbyline(QgsProcessingAlgorithm):
 
         single = self.parameterAsBool(parameters, self.SINGLE, context)
         keep = self.parameterAsBool(parameters, self.KEEP, context)
-        bufferdist = str(self.parameterAsDouble(parameters, self.BUFFER, context))
+        bufferdist = self.parameterAsDouble(parameters, self.BUFFER, context)
 
         if len(fieldsB) > 0:
            fieldstringB = ', '.join(["g2.{}".format(f) for f in fieldsB])

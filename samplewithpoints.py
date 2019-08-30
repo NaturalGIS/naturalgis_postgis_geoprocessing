@@ -4,10 +4,10 @@
 ***************************************************************************
     samplewithpoints.py
     ---------------------
-    Date                 : January 2015
-    Copyright            : (C) 2015 by Giovanni Manghi
+    Date                 : August 2019
+    Copyright            : (C) 2019 by Giovanni Manghi
     Email                : giovanni dot manghi at naturalgis dot pt
-************************selectbyline***************************************************
+***************************************************************************
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
 *   it under the terms of the GNU General Public License as published by  *
@@ -17,9 +17,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Giovanni Manghi'
-__date__ = 'January 2015'
-__copyright__ = '(C) 2015, Giovanni Manghi'
+__author__ = 'Alexander Bruy and Giovanni Manghi'
+__date__ = 'August 2019'
+__copyright__ = '(C) 2019, Giovanni Manghi'
 
 # This will get replaced with a git SHA1 when you do a git archive
 
@@ -90,7 +90,7 @@ class samplewithpoints(QgsProcessingAlgorithm):
                                                       'sampled_field'))
         self.addParameter(QgsProcessingParameterVectorLayer(self.INPUT_LAYER_B,
                                                             'Select values from',
-                                                            [QgsProcessing.TypeVectorPoint]))
+                                                            [QgsProcessing.TypeVectorPolygon]))
         self.addParameter(QgsProcessingParameterField(self.FIELD_B,
                                                       'Attribute to be sampled',
                                                       None,
@@ -111,23 +111,24 @@ class samplewithpoints(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
-        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)[1:-1]
+        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)
         layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
 
         inLayerB = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_B, context)
-        ogrLayerB = GdalUtils.ogrConnectionStringFromLayer(inLayerB)[1:-1]
+        ogrLayerB = GdalUtils.ogrConnectionStringFromLayer(inLayerB)
         layernameB = GdalUtils.ogrLayerName(inLayerB.dataProvider().dataSourceUri())
 
+        #fieldsA = self.parameterAsFields(parameters, self.FIELD_A, context)
         fieldsA = self.parameterAsFields(parameters, self.FIELDS_A, context)
         fieldA = self.parameterAsString(parameters, self.FIELD_A, context)
         fieldB = self.parameterAsString(parameters, self.FIELD_B, context)
 
         uri = QgsDataSourceUri(inLayerA.source())
         geomColumnA = uri.geometryColumn()
-        uri = QgsDataSourceURI(inLayerB.source())
+        uri = QgsDataSourceUri(inLayerB.source())
         geomColumnB = uri.geometryColumn()
 
-        sridA = layerA.crs().postgisSrid()
+        sridA = inLayerA.crs().postgisSrid()
 
         schema = self.parameterAsString(parameters, self.SCHEMA, context)
         table = self.parameterAsString(parameters, self.TABLE, context)
@@ -136,7 +137,7 @@ class samplewithpoints(QgsProcessingAlgorithm):
         single = self.parameterAsBool(parameters, self.SINGLE, context)
 
         if len(fieldsA) > 0:
-           fieldstringA = ', '.join(["g1.{}".format(f) for f in fieldsB])
+           fieldstringA = ', '.join(["g1.{}".format(f) for f in fieldsA])
            fieldstringA = ", " + fieldstringA
         else:
            fieldstringA = ""

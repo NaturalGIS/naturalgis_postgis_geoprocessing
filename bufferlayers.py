@@ -4,8 +4,8 @@
 ***************************************************************************
     bufferlayers.py
     ---------------------
-    Date                 : January 2015
-    Copyright            : (C) 2015 by Giovanni Manghi
+    Date                 : August 2019
+    Copyright            : (C) 2019 by Giovanni Manghi
     Email                : giovanni dot manghi at naturalgis dot pt
 ***************************************************************************
 *                                                                         *
@@ -17,9 +17,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Giovanni Manghi'
-__date__ = 'January 2015'
-__copyright__ = '(C) 2015, Giovanni Manghi'
+__author__ = 'Alexander Bruy and Giovanni Manghi'
+__date__ = 'August 2019'
+__copyright__ = '(C) 2019, Giovanni Manghi'
 
 # This will get replaced with a git SHA1 when you do a git archive
 
@@ -115,12 +115,12 @@ class bufferlayers(QgsProcessingAlgorithm):
 
     def processAlgorithm(self, parameters, context, feedback):
         inLayer = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
-        ogrLayer = GdalUtils.ogrConnectionStringFromLayer(inLayerA)[1:-1]
-        layername = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
+        ogrLayer = GdalUtils.ogrConnectionStringFromLayer(inLayer)
+        layername = GdalUtils.ogrLayerName(inLayer.dataProvider().dataSourceUri())
 
-        dsUri = QgsDataSourceURI(inLayer.source())
+        dsUri = QgsDataSourceUri(inLayer.source())
         geomColumn = dsUri.geometryColumn()
-        srid = layer.crs().postgisSrid()
+        srid = inLayer.crs().postgisSrid()
 
         fields = self.parameterAsFields(parameters, self.FIELDS, context)
         dissfield = self.parameterAsString(parameters, self.DISSFIELD, context)

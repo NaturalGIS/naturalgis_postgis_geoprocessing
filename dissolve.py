@@ -118,13 +118,13 @@ class dissolve(QgsProcessingAlgorithm):
                                                        optional=True))
 
     def processAlgorithm(self, parameters, context, feedback):
-        inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER_A, context)
-        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)[1:-1]
+        inLayerA = self.parameterAsVectorLayer(parameters, self.INPUT_LAYER, context)
+        ogrLayerA = GdalUtils.ogrConnectionStringFromLayer(inLayerA)
         layernameA = GdalUtils.ogrLayerName(inLayerA.dataProvider().dataSourceUri())
 
-        uri = QgsDataSourceUri(inLayer.source())
+        uri = QgsDataSourceUri(inLayerA.source())
         geomColumn = uri.geometryColumn()
-        srid = inLayer.crs().postgisSrid()
+        srid = inLayerA.crs().postgisSrid()
 
         field = self.parameterAsString(parameters, self.FIELD, context)
         statsatt = self.parameterAsString(parameters, self.STATSATT, context)
@@ -165,9 +165,9 @@ class dissolve(QgsProcessingAlgorithm):
             querystart = '-sql "SELECT (ST_Multi(ST_Union(' + geomColumn + ')))::geometry(MULTIPOLYGON,' + str(srid) + ')' + fieldstring
 
         if dissolveall:
-            queryend = ' FROM ' + layername + '"' + " -nln " + schema + "." + table + " -nlt " + layertype + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+            queryend = ' FROM ' + layernameA + '"' + " -nln " + schema + "." + table + " -nlt " + layertype + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
         else:
-            queryend = ' FROM ' + layername + ' GROUP BY ' + field + '"' + " -nln " + schema + "." + table + " -nlt " + layertype + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
+            queryend = ' FROM ' + layernameA + ' GROUP BY ' + field + '"' + " -nln " + schema + "." + table + " -nlt " + layertype + " -lco FID=gid -lco GEOMETRY_NAME=geom --config PG_USE_COPY YES"
 
         if count:
            querycount = ", COUNT(" + geomColumn + ") AS count"
@@ -188,8 +188,8 @@ class dissolve(QgsProcessingAlgorithm):
         arguments = []
         arguments.append('-f')
         arguments.append('PostgreSQL')
-        arguments.append(ogrLayer)
-        arguments.append(ogrLayer)
+        arguments.append(ogrLayerA)
+        arguments.append(ogrLayerA)
         arguments.append(query)
         arguments.append('-overwrite')
 
